@@ -43,6 +43,7 @@ import { TaskLogs } from './TaskLogs';
 import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
 import { HumanInputDialog } from './HumanInputDialog';
+import { ProviderSwitchDialog } from './ProviderSwitchDialog';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
 
 interface TaskDetailModalProps {
@@ -658,6 +659,15 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           open={state.showHumanInputDialog}
           onAnswer={state.handleHumanInputAnswer}
           onSkip={state.handleHumanInputSkip}
+        />
+      )}
+
+      {/* Provider Switch Dialog (for confirming provider changes) */}
+      {state.providerSwitchRequest && (
+        <ProviderSwitchDialog
+          request={state.providerSwitchRequest}
+          open={state.showProviderSwitchDialog}
+          onAnswer={state.handleProviderSwitchAnswer}
         />
       )}
     </TooltipProvider>

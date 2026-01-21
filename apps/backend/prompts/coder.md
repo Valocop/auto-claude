@@ -765,6 +765,33 @@ print(f"Updated {subtask_id} to completed")
 - Verification criteria
 - Phase structure
 
+### 🚫 FORBIDDEN: Using Edit Tool with replace_all for Status Updates
+
+**NEVER use the Edit tool with `replace_all=true` to update subtask statuses!**
+
+This is a critical bug that has caused tasks to fail:
+- Using `replace_all` with `"pending"` → `"completed"` marks ALL subtasks as completed at once
+- This makes it appear work is done when files were never created
+- QA will reject the task because expected files don't exist
+
+```
+# ❌ ABSOLUTELY FORBIDDEN - This marks ALL subtasks as completed!
+Edit(
+  file_path="implementation_plan.json",
+  old_string='"status": "pending"',
+  new_string='"status": "completed"',
+  replace_all=true  # ← NEVER DO THIS
+)
+```
+
+**Why this is dangerous:**
+1. You may have 4 subtasks with `"status": "pending"`
+2. `replace_all=true` changes ALL 4 to `"completed"` in one operation
+3. But you only completed 1 subtask - the other 3 still have work to do
+4. QA finds missing files and rejects the entire task
+
+**ALWAYS update ONE subtask at a time using jq or Python (see examples above).**
+
 ---
 
 ## STEP 9: COMMIT YOUR PROGRESS

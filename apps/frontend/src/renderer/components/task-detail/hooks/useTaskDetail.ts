@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, useTaskStore, loadTasks } from '../../../stores/task-store';
-import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment, HumanInputRequest } from '../../../../shared/types';
+import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment, HumanInputRequest, ProviderSwitchRequest, ProviderSwitchChoice } from '../../../../shared/types';
 
 /**
  * Validates task subtasks structure to prevent infinite loops during resume.
@@ -96,6 +96,10 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [humanInputRequest, setHumanInputRequest] = useState<HumanInputRequest | null>(null);
   const [showHumanInputDialog, setShowHumanInputDialog] = useState(false);
 
+  // Provider switch state (for system asking user to switch providers)
+  const [providerSwitchRequest, setProviderSwitchRequest] = useState<ProviderSwitchRequest | null>(null);
+  const [showProviderSwitchDialog, setShowProviderSwitchDialog] = useState(false);
+
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
   const isRunning = task.status === 'in_progress';
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
@@ -179,9 +183,13 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [activeTab]);
 
-  // Watch for human input requests when task is running
+  // Watch for human input requests when task is active (running or in planning phase)
+  // Note: Human input can be requested during both planning (spec creation) and coding phases
+  const isInPlanningPhase = executionPhase === 'planning' || executionPhase === 'idle';
+  const shouldWatchHumanInput = isRunning || isInPlanningPhase || task.status === 'backlog';
+
   useEffect(() => {
-    if (!isRunning || !task.specsPath) {
+    if (!shouldWatchHumanInput || !task.specsPath) {
       setHumanInputRequest(null);
       setShowHumanInputDialog(false);
       return;
@@ -212,7 +220,42 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
         window.electronAPI.humanInputUnwatch(task.specsPath).catch(console.error);
       }
     };
-  }, [isRunning, task.specsPath]);
+  }, [shouldWatchHumanInput, task.specsPath]);
+
+  // Watch for provider switch requests (system asking user to confirm provider change)
+  useEffect(() => {
+    if (!shouldWatchHumanInput || !task.specsPath) {
+      setProviderSwitchRequest(null);
+      setShowProviderSwitchDialog(false);
+      return;
+    }
+
+    // Start watching for provider switch requests
+    window.electronAPI.providerSwitchWatch(task.specsPath).catch(console.error);
+
+    // Listen for provider switch change events
+    const unsubscribe = window.electronAPI.onProviderSwitchChanged((data) => {
+      if (data.specPath === task.specsPath && data.request.status === 'pending') {
+        setProviderSwitchRequest(data.request);
+        setShowProviderSwitchDialog(true);
+      }
+    });
+
+    // Check for existing pending request on mount
+    window.electronAPI.providerSwitchCheck(task.specsPath).then((result) => {
+      if (result.success && result.data) {
+        setProviderSwitchRequest(result.data);
+        setShowProviderSwitchDialog(true);
+      }
+    }).catch(console.error);
+
+    return () => {
+      unsubscribe();
+      if (task.specsPath) {
+        window.electronAPI.providerSwitchUnwatch(task.specsPath).catch(console.error);
+      }
+    };
+  }, [shouldWatchHumanInput, task.specsPath]);
 
   // Reset feedback images when task changes to prevent image leakage between tasks
   useEffect(() => {
@@ -547,6 +590,19 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [task.specsPath]);
 
+  // Handle provider switch answer
+  const handleProviderSwitchAnswer = useCallback(async (choice: ProviderSwitchChoice) => {
+    if (!task.specsPath) return;
+
+    try {
+      await window.electronAPI.providerSwitchAnswer(task.specsPath, choice);
+      setProviderSwitchRequest(null);
+      setShowProviderSwitchDialog(false);
+    } catch (err) {
+      console.error('Failed to submit provider switch answer:', err);
+    }
+  }, [task.specsPath]);
+
   return {
     // State
     feedback,
@@ -593,6 +649,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     isLoadingPlan,
     humanInputRequest,
     showHumanInputDialog,
+    providerSwitchRequest,
+    showProviderSwitchDialog,
 
     // Setters
     setFeedback,
@@ -640,5 +698,6 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     reloadPlanForIncompleteTask,
     handleHumanInputAnswer,
     handleHumanInputSkip,
+    handleProviderSwitchAnswer,
   };
 }

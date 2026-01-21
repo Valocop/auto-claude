@@ -174,6 +174,99 @@ TOOL_SCHEMAS = [
             }
         }
     },
+    # Human Input Tools
+    {
+        "type": "function",
+        "function": {
+            "name": "request_human_choice",
+            "description": "Request the user to choose one option from a list. Use this when you need a decision on architecture, approach, or implementation strategy. The tool will pause execution until the user responds or times out.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Short question title (e.g., 'Authentication Method', 'Database Choice')"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Detailed description of what you're asking and why"
+                    },
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "label": {"type": "string"},
+                                "description": {"type": "string"},
+                                "recommended": {"type": "boolean"}
+                            }
+                        },
+                        "description": "List of options to choose from (2-5 options)"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Additional context about why you're asking this question"
+                    }
+                },
+                "required": ["title", "description", "options"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_human_text",
+            "description": "Request free text input from the user. Use this when you need specific information that can't be expressed as a choice, such as API keys, custom configurations, or detailed explanations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Short question title"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Detailed description of what information you need"
+                    },
+                    "placeholder": {
+                        "type": "string",
+                        "description": "Placeholder text to show in the input field"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Additional context about why you need this information"
+                    }
+                },
+                "required": ["title", "description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_human_confirm",
+            "description": "Request a yes/no confirmation from the user. Use this for decisions that have significant consequences, like deleting data, making breaking changes, or proceeding with a risky operation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Short question title"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Detailed description of what you're asking to confirm"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Additional context about the implications of this decision"
+                    }
+                },
+                "required": ["title", "description"]
+            }
+        }
+    },
 ]
 
 
@@ -484,8 +577,35 @@ def execute_edit(args: dict, context: ToolContext) -> dict:
                 "error": f"String not found in file: {old_string[:100]}..."
             }
 
+        # PROTECTION: Block replace_all for status updates in implementation_plan.json
+        # This prevents agents from marking ALL subtasks as completed with one command
+        if replace_all and path.name == "implementation_plan.json":
+            status_patterns = ['"status"', "'status'", "status"]
+            if any(pattern in old_string.lower() for pattern in status_patterns):
+                occurrence_count = content.count(old_string)
+                return {
+                    "success": False,
+                    "error": (
+                        f"BLOCKED: Cannot use replace_all for status updates in implementation_plan.json. "
+                        f"This would change {occurrence_count} subtasks at once, which is incorrect. "
+                        f"You must update EACH subtask status individually using jq or Python. "
+                        f"Example: jq '(.phases[].subtasks[] | select(.id == \"SUBTASK_ID\") | .status) = \"completed\"' file.json"
+                    )
+                }
+
         # Check uniqueness if not replace_all
         if not replace_all and content.count(old_string) > 1:
+            # For implementation_plan.json status updates, give specific guidance
+            if path.name == "implementation_plan.json" and "status" in old_string.lower():
+                return {
+                    "success": False,
+                    "error": (
+                        f"String appears {content.count(old_string)} times. "
+                        f"DO NOT use replace_all=true for status updates - this would mark ALL subtasks as completed incorrectly. "
+                        f"Instead, use jq to update ONE subtask at a time: "
+                        f"jq '(.phases[].subtasks[] | select(.id == \"YOUR_SUBTASK_ID\") | .status) = \"completed\"' implementation_plan.json"
+                    )
+                }
             return {
                 "success": False,
                 "error": f"String appears {content.count(old_string)} times. Use replace_all=true or provide more context."
@@ -754,6 +874,225 @@ def execute_grep(args: dict, context: ToolContext) -> dict:
 
 
 # =============================================================================
+# Human Input Tools
+# =============================================================================
+
+def execute_request_human_choice(args: dict, context: ToolContext) -> dict:
+    """
+    Execute request_human_choice tool - ask user to choose from options.
+
+    Args:
+        args: {"title": str, "description": str, "options": list, "context": str?}
+        context: Tool execution context
+
+    Returns:
+        {"success": bool, "answer": str?, "error": str?}
+    """
+    from core.human_input import HumanInputManager
+
+    title = args.get("title", "Question")
+    description = args.get("description", "")
+    options = args.get("options", [])
+    question_context = args.get("context")
+
+    if len(options) < 2:
+        return {
+            "success": False,
+            "error": "At least 2 options are required for a choice question."
+        }
+
+    if len(options) > 5:
+        return {
+            "success": False,
+            "error": "Maximum 5 options allowed for a choice question."
+        }
+
+    try:
+        human_input = HumanInputManager(context.spec_dir)
+
+        # Get current phase and subtask
+        phase, subtask_id = _get_current_context(context.spec_dir)
+
+        answer = human_input.request_choice(
+            title=title,
+            description=description,
+            options=options,
+            context=question_context,
+            timeout=300,  # 5 minutes
+            phase=phase,
+            subtask_id=subtask_id,
+        )
+
+        if answer is None:
+            return {
+                "success": True,
+                "answer": None,
+                "message": "The question timed out or was skipped by the user. Proceed with your best judgment or the recommended option."
+            }
+
+        # Find the selected option details
+        selected_option = next(
+            (opt for opt in options if opt.get("id") == answer), None
+        )
+        if selected_option:
+            return {
+                "success": True,
+                "answer": answer,
+                "message": f"User selected: {selected_option.get('label')} (id: {answer}). Proceed with this choice."
+            }
+
+        return {
+            "success": True,
+            "answer": answer,
+            "message": f"User selected option: {answer}"
+        }
+
+    except Exception as e:
+        logger.error(f"request_human_choice failed: {e}")
+        return {
+            "success": False,
+            "error": f"Error requesting human input: {str(e)}. Proceeding with your best judgment."
+        }
+
+
+def execute_request_human_text(args: dict, context: ToolContext) -> dict:
+    """
+    Execute request_human_text tool - ask user for free text input.
+
+    Args:
+        args: {"title": str, "description": str, "placeholder": str?, "context": str?}
+        context: Tool execution context
+
+    Returns:
+        {"success": bool, "answer": str?, "error": str?}
+    """
+    from core.human_input import HumanInputManager
+
+    title = args.get("title", "Question")
+    description = args.get("description", "")
+    placeholder = args.get("placeholder")
+    question_context = args.get("context")
+
+    try:
+        human_input = HumanInputManager(context.spec_dir)
+        phase, subtask_id = _get_current_context(context.spec_dir)
+
+        answer = human_input.request_text(
+            title=title,
+            description=description,
+            placeholder=placeholder,
+            context=question_context,
+            timeout=300,
+            phase=phase,
+            subtask_id=subtask_id,
+        )
+
+        if answer is None:
+            return {
+                "success": True,
+                "answer": None,
+                "message": "The question timed out or was skipped by the user. Proceed with a sensible default or skip this step if possible."
+            }
+
+        return {
+            "success": True,
+            "answer": answer,
+            "message": f"User provided: {answer}. Proceed with this information."
+        }
+
+    except Exception as e:
+        logger.error(f"request_human_text failed: {e}")
+        return {
+            "success": False,
+            "error": f"Error requesting human input: {str(e)}. Proceeding with a sensible default."
+        }
+
+
+def execute_request_human_confirm(args: dict, context: ToolContext) -> dict:
+    """
+    Execute request_human_confirm tool - ask user for yes/no confirmation.
+
+    Args:
+        args: {"title": str, "description": str, "context": str?}
+        context: Tool execution context
+
+    Returns:
+        {"success": bool, "answer": bool?, "error": str?}
+    """
+    from core.human_input import HumanInputManager
+
+    title = args.get("title", "Confirmation")
+    description = args.get("description", "")
+    question_context = args.get("context")
+
+    try:
+        human_input = HumanInputManager(context.spec_dir)
+        phase, subtask_id = _get_current_context(context.spec_dir)
+
+        answer = human_input.request_confirm(
+            title=title,
+            description=description,
+            context=question_context,
+            timeout=300,
+            phase=phase,
+            subtask_id=subtask_id,
+        )
+
+        if answer is None:
+            return {
+                "success": True,
+                "answer": None,
+                "message": "The confirmation timed out or was skipped. Do NOT proceed with the risky operation. Choose a safer alternative."
+            }
+
+        if answer:
+            return {
+                "success": True,
+                "answer": True,
+                "message": "User confirmed: YES. You may proceed with the operation."
+            }
+        else:
+            return {
+                "success": True,
+                "answer": False,
+                "message": "User confirmed: NO. Do not proceed with this operation. Find an alternative approach."
+            }
+
+    except Exception as e:
+        logger.error(f"request_human_confirm failed: {e}")
+        return {
+            "success": False,
+            "error": f"Error requesting human confirmation: {str(e)}. Do NOT proceed with risky operations."
+        }
+
+
+def _get_current_context(spec_dir: Path) -> tuple[str | None, str | None]:
+    """
+    Get current phase and subtask from implementation plan.
+
+    Returns:
+        Tuple of (phase, subtask_id) or (None, None) if not found
+    """
+    plan_file = spec_dir / "implementation_plan.json"
+    if not plan_file.exists():
+        return None, None
+
+    try:
+        with open(plan_file) as f:
+            plan = json.load(f)
+
+        for phase in plan.get("phases", []):
+            phase_id = phase.get("id") or phase.get("phase")
+            for subtask in phase.get("subtasks", []):
+                if subtask.get("status") == "in_progress":
+                    return phase_id, subtask.get("id")
+
+        return None, None
+    except (json.JSONDecodeError, IOError):
+        return None, None
+
+
+# =============================================================================
 # Tool Dispatcher
 # =============================================================================
 
@@ -764,6 +1103,9 @@ TOOL_EXECUTORS = {
     "Bash": execute_bash,
     "Glob": execute_glob,
     "Grep": execute_grep,
+    "request_human_choice": execute_request_human_choice,
+    "request_human_text": execute_request_human_text,
+    "request_human_confirm": execute_request_human_confirm,
 }
 
 
@@ -892,5 +1234,8 @@ def format_tool_result(tool_name: str, result: dict) -> str:
         if result.get("truncated"):
             output_lines.append(f"... and more matches (truncated)")
         return "\n".join(output_lines)
+
+    elif tool_name in ("request_human_choice", "request_human_text", "request_human_confirm"):
+        return result.get("message", "Human input processed")
 
     return json.dumps(result)

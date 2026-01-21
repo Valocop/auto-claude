@@ -92,6 +92,13 @@ export const taskMock = {
   humanInputUnwatch: async () => ({ success: true }),
   onHumanInputChanged: () => () => {},
 
+  // Provider switch operations (system asking user to confirm provider change)
+  providerSwitchCheck: async () => ({ success: true, data: null }),
+  providerSwitchAnswer: async () => ({ success: true }),
+  providerSwitchWatch: async () => ({ success: true }),
+  providerSwitchUnwatch: async () => ({ success: true }),
+  onProviderSwitchChanged: () => () => {},
+
   // Event Listeners (no-op in browser)
   onTaskProgress: () => () => {},
   onTaskError: () => () => {},

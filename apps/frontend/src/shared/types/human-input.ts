@@ -66,3 +66,45 @@ export interface HumanInputRequest {
 export interface HumanInputAnswer {
   answer: string | string[] | boolean;
 }
+
+/**
+ * Provider Switch Types
+ *
+ * Types for the provider switch confirmation system that asks users
+ * before switching from one AI provider to another (e.g., iFlow to Claude).
+ */
+
+/**
+ * Reason codes for provider switch
+ */
+export type ProviderSwitchReasonCode =
+  | 'investigation_task'
+  | 'low_confidence'
+  | 'human_input_needed';
+
+/**
+ * Status of a provider switch request
+ */
+export type ProviderSwitchStatus = 'pending' | 'approved' | 'rejected' | 'timeout';
+
+/**
+ * User choice for provider switch
+ */
+export type ProviderSwitchChoice = 'switch' | 'skip';
+
+/**
+ * Provider switch request from the orchestrator
+ */
+export interface ProviderSwitchRequest {
+  id: string;
+  created_at: string;
+  status: ProviderSwitchStatus;
+  current_provider: string;
+  target_provider: string;
+  reason: string;
+  reason_code: ProviderSwitchReasonCode;
+  task_description?: string | null;
+  user_choice?: ProviderSwitchChoice | null;
+  answered_at?: string | null;
+  timeout_seconds?: number | null;
+}

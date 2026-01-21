@@ -6,6 +6,7 @@ Validates implementation_plan.json structure, phases, subtasks, and dependencies
 """
 
 import json
+import re
 from pathlib import Path
 
 from ..models import ValidationResult
@@ -22,6 +23,76 @@ class ImplementationPlanValidator:
             spec_dir: Path to the spec directory
         """
         self.spec_dir = Path(spec_dir)
+
+    def _is_pure_investigation_task(self, plan: dict) -> bool:
+        """Check if this is a pure investigation task that doesn't require implementation phases.
+
+        A pure investigation task:
+        - Has workflow_type "investigation" (in plan or spec.md)
+        - Spec.md explicitly states no code changes in "Out of Scope"
+
+        Args:
+            plan: The implementation plan dictionary
+
+        Returns:
+            True if this is a pure investigation task, False otherwise
+        """
+        # Check workflow_type from plan
+        workflow_type = plan.get("workflow_type", "").lower()
+
+        # Check spec.md for workflow type and out of scope
+        spec_file = self.spec_dir / "spec.md"
+        if not spec_file.exists():
+            return workflow_type == "investigation"
+
+        try:
+            spec_content = spec_file.read_text(encoding="utf-8")
+
+            # Check workflow type in spec.md (takes precedence over plan)
+            workflow_match = re.search(
+                r"\*\*Type\*\*:\s*(\w+)",
+                spec_content,
+                re.IGNORECASE,
+            )
+            if workflow_match:
+                spec_workflow_type = workflow_match.group(1).lower()
+                if spec_workflow_type == "investigation":
+                    workflow_type = "investigation"
+
+            # If not investigation workflow, not a pure investigation task
+            if workflow_type != "investigation":
+                return False
+
+            # Look for Out of Scope section
+            out_of_scope_match = re.search(
+                r"###?\s*Out of Scope[:\s]*\n(.*?)(?=\n##|\n###|\Z)",
+                spec_content,
+                re.IGNORECASE | re.DOTALL,
+            )
+
+            if out_of_scope_match:
+                out_of_scope = out_of_scope_match.group(1).lower()
+                # Check for patterns that indicate no code changes
+                no_impl_patterns = [
+                    "implementing features",
+                    "implementing changes",
+                    "modifying existing code",
+                    "modifying code",
+                    "code changes",
+                    "implementation",
+                ]
+                for pattern in no_impl_patterns:
+                    if pattern in out_of_scope:
+                        return True
+
+            # Even without explicit out of scope, investigation with empty phases is valid
+            # if spec.md confirms investigation type
+            return True
+
+        except Exception:
+            pass
+
+        return workflow_type == "investigation"
 
     def validate(self) -> ValidationResult:
         """Validate implementation_plan.json exists and has valid schema.
@@ -66,11 +137,20 @@ class ImplementationPlanValidator:
                 errors.append(f"Invalid workflow_type: {plan['workflow_type']}")
                 fixes.append(f"Use one of: {schema['workflow_types']}")
 
+        # Check if this is a pure investigation task (no implementation phases required)
+        is_pure_investigation = self._is_pure_investigation_task(plan)
+
         # Validate phases
         phases = plan.get("phases", [])
         if not phases:
-            errors.append("No phases defined")
-            fixes.append("Add at least one phase with subtasks")
+            if not is_pure_investigation:
+                errors.append("No phases defined")
+                fixes.append("Add at least one phase with subtasks")
+            else:
+                # Pure investigation task with no phases is valid
+                warnings.append(
+                    "Investigation task with no implementation phases - this is expected for pure research tasks"
+                )
         else:
             for i, phase in enumerate(phases):
                 phase_errors = self._validate_phase(phase, i)
@@ -78,7 +158,7 @@ class ImplementationPlanValidator:
 
         # Check for at least one subtask
         total_subtasks = sum(len(p.get("subtasks", [])) for p in phases)
-        if total_subtasks == 0:
+        if total_subtasks == 0 and not is_pure_investigation:
             errors.append("No subtasks defined in any phase")
             fixes.append("Add subtasks to phases")
 

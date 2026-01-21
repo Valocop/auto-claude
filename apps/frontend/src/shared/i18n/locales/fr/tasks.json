@@ -260,6 +260,17 @@
     "timeout": "Temps restant",
     "expired": "Question expirée"
   },
+  "providerSwitch": {
+    "title": "Changement de fournisseur requis",
+    "description": "Le système doit passer de {{from}} à {{to}} pour continuer.",
+    "task": "Tâche",
+    "switchOption": "Passer à Claude",
+    "switchDescription": "Activer les questions interactives et les outils de saisie humaine. Cela permet à l'IA de poser des questions de clarification pendant l'exécution de la tâche.",
+    "skipOption": "Continuer sans changer",
+    "skipDescription": "Ignorer la phase de clarification et continuer avec le fournisseur actuel. L'IA procédera avec des hypothèses au mieux.",
+    "confirm": "Confirmer le choix",
+    "tip": "Conseil : Pour éviter cette invite à l'avenir, sélectionnez Claude comme fournisseur lors de la création de tâches pouvant nécessiter des questions interactives ou une exploration."
+  },
   "bulkPR": {
     "selectAllInColumn": "Sélectionner toutes les tâches de la colonne",
     "deselectAllInColumn": "Désélectionner toutes les tâches",

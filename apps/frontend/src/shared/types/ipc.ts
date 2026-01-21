@@ -45,7 +45,7 @@ import type {
   TaskLogStreamChunk,
   ImageAttachment
 } from './task';
-import type { HumanInputRequest } from './human-input';
+import type { HumanInputRequest, ProviderSwitchRequest, ProviderSwitchChoice } from './human-input';
 import type {
   TerminalCreateOptions,
   TerminalSession,
@@ -193,6 +193,13 @@ export interface ElectronAPI {
   humanInputWatch: (specPath: string) => Promise<IPCResult>;
   humanInputUnwatch: (specPath: string) => Promise<IPCResult>;
   onHumanInputChanged: (callback: (data: { specPath: string; request: HumanInputRequest }) => void) => () => void;
+
+  // Provider switch operations (system asking user to confirm provider change)
+  providerSwitchCheck: (specPath: string) => Promise<IPCResult<ProviderSwitchRequest | null>>;
+  providerSwitchAnswer: (specPath: string, choice: ProviderSwitchChoice) => Promise<IPCResult>;
+  providerSwitchWatch: (specPath: string) => Promise<IPCResult>;
+  providerSwitchUnwatch: (specPath: string) => Promise<IPCResult>;
+  onProviderSwitchChanged: (callback: (data: { specPath: string; request: ProviderSwitchRequest }) => void) => () => void;
 
   // Event listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;

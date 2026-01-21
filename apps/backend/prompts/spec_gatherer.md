@@ -202,6 +202,49 @@ Next phase: Context Discovery
 
 ---
 
+## HUMAN INPUT TOOLS
+
+When you need user input, you have access to human input tools:
+
+### request_human_choice
+Use when you need the user to choose between options:
+```
+request_human_choice(
+  title="Workflow Type",
+  description="What type of task is this?",
+  options=[
+    {"id": "feature", "label": "New Feature", "description": "Adding new functionality", "recommended": true},
+    {"id": "refactor", "label": "Refactor", "description": "Improving existing code"},
+    {"id": "investigation", "label": "Investigation", "description": "Research or debugging"}
+  ],
+  context="Based on your description, I think this is a feature task."
+)
+```
+
+### request_human_text
+Use when you need free text input:
+```
+request_human_text(
+  title="Task Description",
+  description="Please describe what you want to build in detail.",
+  placeholder="I want to add a feature that..."
+)
+```
+
+### request_human_confirm
+Use for yes/no questions:
+```
+request_human_confirm(
+  title="Confirm Requirements",
+  description="Are these requirements correct?",
+  context="Task: Add user authentication\nServices: auth, users"
+)
+```
+
+**Important**: Use these tools instead of printing questions when you need actual user input. The tools will pause execution and wait for the user's response.
+
+---
+
 ## CRITICAL RULES
 
 1. **ALWAYS create requirements.json** - The orchestrator checks for this file
@@ -209,6 +252,7 @@ Next phase: Context Discovery
 3. **Include all required fields** - task_description, workflow_type, services_involved
 4. **Ask before assuming** - Don't guess what the user wants
 5. **Confirm before outputting** - Show the user what you understood
+6. **Use human input tools** - When running non-interactively, use request_human_choice, request_human_text, or request_human_confirm to get user input
 
 ---
 

@@ -34,6 +34,7 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerIFlowHandlers } from './iflow-handlers';
 import { registerHumanInputHandlers } from './human-input-handlers';
+import { registerProviderSwitchHandlers } from './provider-switch-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { notificationService } from '../notification-service';
 
@@ -126,6 +127,9 @@ export function setupIpcHandlers(
   // Human input handlers (for agent questions during execution)
   registerHumanInputHandlers(getMainWindow);
 
+  // Provider switch handlers (for confirming provider switches)
+  registerProviderSwitchHandlers(getMainWindow);
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -154,5 +158,6 @@ export {
   registerMcpHandlers,
   registerProfileHandlers,
   registerIFlowHandlers,
-  registerHumanInputHandlers
+  registerHumanInputHandlers,
+  registerProviderSwitchHandlers
 };

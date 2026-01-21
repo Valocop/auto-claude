@@ -148,7 +148,7 @@ AGENT_CONFIGS = {
     # ═══════════════════════════════════════════════════════════════════════
     "spec_gatherer": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
-        "mcp_servers": [],  # No MCP needed - just reads project
+        "mcp_servers": ["auto-claude"],  # Needs human input tools for asking questions
         "auto_claude_tools": [],
         "thinking_default": "medium",
         # iFlow alternative provider support
@@ -157,7 +157,7 @@ AGENT_CONFIGS = {
     },
     "spec_researcher": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
-        "mcp_servers": ["context7"],  # Needs docs lookup
+        "mcp_servers": ["context7", "auto-claude"],  # Needs docs lookup + human input for questions
         "auto_claude_tools": [],
         "thinking_default": "medium",
         # iFlow alternative provider support
@@ -166,7 +166,7 @@ AGENT_CONFIGS = {
     },
     "spec_writer": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS,
-        "mcp_servers": [],  # Just writes spec.md
+        "mcp_servers": ["auto-claude"],  # Needs human input for clarifying requirements
         "auto_claude_tools": [],
         "thinking_default": "high",
         # iFlow alternative provider support
@@ -184,7 +184,7 @@ AGENT_CONFIGS = {
     },
     "spec_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
-        "mcp_servers": [],
+        "mcp_servers": ["auto-claude"],  # Needs human input for asking clarifying questions
         "auto_claude_tools": [],
         "thinking_default": "medium",
         # iFlow alternative provider support

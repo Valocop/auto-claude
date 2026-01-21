@@ -43,7 +43,9 @@ export default defineConfig({
         'debug',
         'ms',
         // Minimatch for glob pattern matching in worktree handlers
-        'minimatch'
+        'minimatch',
+        // OpenAI SDK for iFlow model discovery
+        'openai'
       ]
     })],
     build: {

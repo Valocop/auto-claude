@@ -58,6 +58,7 @@ class AgentRunner:
         interactive: bool = False,
         thinking_budget: int | None = None,
         prior_phase_summaries: str | None = None,
+        provider_override: str | None = None,
     ) -> tuple[bool, str]:
         """Run an agent with the given prompt.
 
@@ -67,6 +68,8 @@ class AgentRunner:
             interactive: Whether to run in interactive mode
             thinking_budget: Token budget for extended thinking (None = disabled)
             prior_phase_summaries: Summaries from previous phases for context
+            provider_override: Override the default provider for this run
+                              (e.g., "claude" for phases needing human input)
 
         Returns:
             Tuple of (success, response_text)
@@ -116,13 +119,44 @@ class AgentRunner:
                 context_length=len(additional_context),
             )
 
+        # Derive agent_type from prompt file name
+        # e.g., "spec_gatherer.md" -> "spec_gatherer"
+        #       "complexity_assessor.md" -> "spec_discovery" (fallback for complexity)
+        agent_type = prompt_file.replace(".md", "")
+
+        # Map prompt files to AGENT_CONFIGS agent types
+        prompt_to_agent_type = {
+            "spec_gatherer": "spec_gatherer",
+            "spec_researcher": "spec_researcher",
+            "spec_writer": "spec_writer",
+            "spec_critic": "spec_critic",
+            "spec_quick": "spec_writer",  # Quick spec uses writer config
+            "spec_validator": "spec_validation",
+            "complexity_assessor": "spec_discovery",
+            "context_gatherer": "spec_context",
+            "discovery": "spec_discovery",
+        }
+        agent_type = prompt_to_agent_type.get(agent_type, "spec_gatherer")
+
+        # Use provider override if specified, otherwise use default
+        effective_provider = provider_override or self.provider
+
+        # Determine effective model - when switching from iFlow to Claude,
+        # use a Claude-compatible model instead of iFlow model
+        effective_model = self.model
+        if provider_override == "claude" and self.provider == "iflow":
+            # Switch to default Claude model when forcing Claude provider
+            effective_model = "sonnet"  # Default Claude model shorthand
+
         # Create client with thinking budget
         debug(
             "agent_runner",
-            f"Creating {self.provider} client...",
+            f"Creating {effective_provider} client...",
             thinking_budget=thinking_budget,
-            provider=self.provider,
-            model=self.model,
+            provider=effective_provider,
+            model=effective_model,
+            agent_type=agent_type,
+            provider_override=provider_override,
         )
         # Lazy import to avoid circular import with core.client
         from core.client import create_client
@@ -130,9 +164,10 @@ class AgentRunner:
         client = create_client(
             self.project_dir,
             self.spec_dir,
-            self.model,
+            effective_model,
+            agent_type=agent_type,
             max_thinking_tokens=thinking_budget,
-            provider=self.provider,
+            provider=effective_provider,
         )
 
         current_tool = None

@@ -326,6 +326,17 @@
     "timeout": "Time remaining",
     "expired": "Question timed out"
   },
+  "providerSwitch": {
+    "title": "Provider Switch Required",
+    "description": "The system needs to switch from {{from}} to {{to}} to continue.",
+    "task": "Task",
+    "switchOption": "Switch to Claude",
+    "switchDescription": "Enable interactive questions and human input tools. This allows the AI to ask clarifying questions during task execution.",
+    "skipOption": "Continue without switching",
+    "skipDescription": "Skip the clarification phase and continue with the current provider. The AI will proceed with best-effort assumptions.",
+    "confirm": "Confirm Choice",
+    "tip": "Tip: To avoid this prompt in the future, select Claude as the provider when creating tasks that may require interactive questions or exploration."
+  },
   "bulkPR": {
     "selectAllInColumn": "Select all tasks in column",
     "deselectAllInColumn": "Deselect all tasks",

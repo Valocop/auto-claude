@@ -60,6 +60,14 @@ export const IPC_CHANNELS = {
   // Human input events (main -> renderer)
   HUMAN_INPUT_CHANGED: 'human-input:changed',
 
+  // Provider switch operations (system asking user before switching providers)
+  PROVIDER_SWITCH_CHECK: 'provider-switch:check',
+  PROVIDER_SWITCH_ANSWER: 'provider-switch:answer',
+  PROVIDER_SWITCH_WATCH: 'provider-switch:watch',
+  PROVIDER_SWITCH_UNWATCH: 'provider-switch:unwatch',
+  // Provider switch events (main -> renderer)
+  PROVIDER_SWITCH_CHANGED: 'provider-switch:changed',
+
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir
   TASK_LOGS_WATCH: 'task:logsWatch',       // Start watching for log changes

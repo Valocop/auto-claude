@@ -44,6 +44,13 @@ class ComplexityAssessment:
     needs_research: bool = False
     needs_self_critique: bool = False
 
+    # Workflow type from AI assessment (feature, refactor, investigation, etc.)
+    workflow_type: str = "feature"
+
+    # Flag for hybrid provider mode - when True, use Claude for phases
+    # that might need human input (gatherer, discovery, requirements)
+    needs_human_input: bool = False
+
     def phases_to_run(self) -> list[str]:
         """Return list of phase names to run based on complexity."""
         # If AI provided recommended phases, use those
@@ -400,6 +407,19 @@ async def run_ai_complexity_assessment(
             with open(assessment_file, encoding="utf-8") as f:
                 data = json.load(f)
 
+            # Also load task description from requirements for keyword detection
+            task_description_lower = ""
+            requirements_file = spec_dir / "requirements.json"
+            if requirements_file.exists():
+                try:
+                    with open(requirements_file, encoding="utf-8") as rf:
+                        req_data = json.load(rf)
+                        task_description_lower = req_data.get(
+                            "task_description", ""
+                        ).lower()
+                except (json.JSONDecodeError, IOError):
+                    pass
+
             # Parse AI assessment into ComplexityAssessment
             complexity_str = data.get("complexity", "standard").lower()
             complexity = Complexity(complexity_str)
@@ -407,9 +427,54 @@ async def run_ai_complexity_assessment(
             # Extract flags
             flags = data.get("flags", {})
 
+            # Extract workflow type
+            workflow_type = data.get("workflow_type", "feature")
+
+            # Detect investigation tasks from keywords in reasoning or task description
+            # Keywords that indicate exploration/investigation (Russian and English)
+            investigation_keywords = [
+                # Russian
+                "изучи", "исследуй", "разбери", "проанализируй", "задай вопрос",
+                "пойми", "выясни", "узнай", "посмотри", "объясни",
+                # English
+                "investigate", "explore", "study", "analyze", "understand",
+                "research", "ask question", "learn about", "figure out", "discover",
+                "look into", "examine", "debug", "troubleshoot",
+            ]
+
+            reasoning_lower = data.get("reasoning", "").lower()
+
+            # Check if task description or reasoning mentions investigation-like patterns
+            text_to_check = f"{task_description_lower} {reasoning_lower}"
+            is_investigation_task = any(
+                kw in text_to_check for kw in investigation_keywords
+            )
+
+            # Override workflow_type if clearly investigation
+            if is_investigation_task and workflow_type == "feature":
+                # Check estimated_files - if 0, likely investigation
+                estimated_files = (
+                    data.get("analysis", {}).get("scope", {}).get("estimated_files", 5)
+                )
+                if estimated_files == 0:
+                    workflow_type = "investigation"
+
+            # Determine if human input is needed based on:
+            # 1. workflow_type is "investigation" (exploratory, needs questions)
+            # 2. confidence is low (< 0.7, unclear requirements)
+            # 3. explicitly flagged in assessment
+            # 4. Task looks like investigation (keywords + no files to modify)
+            confidence = data.get("confidence", 0.75)
+            needs_human_input = (
+                workflow_type == "investigation"
+                or confidence < 0.7
+                or flags.get("needs_human_input", False)
+                or is_investigation_task
+            )
+
             return ComplexityAssessment(
                 complexity=complexity,
-                confidence=data.get("confidence", 0.75),
+                confidence=confidence,
                 reasoning=data.get("reasoning", "AI assessment"),
                 signals=data.get("analysis", {}),
                 estimated_files=data.get("analysis", {})
@@ -427,6 +492,8 @@ async def run_ai_complexity_assessment(
                 recommended_phases=data.get("recommended_phases", []),
                 needs_research=flags.get("needs_research", False),
                 needs_self_critique=flags.get("needs_self_critique", False),
+                workflow_type=workflow_type,
+                needs_human_input=needs_human_input,
             )
 
         return None
@@ -444,6 +511,7 @@ def save_assessment(spec_dir: Path, assessment: ComplexityAssessment) -> Path:
         json.dump(
             {
                 "complexity": assessment.complexity.value,
+                "workflow_type": assessment.workflow_type,
                 "confidence": assessment.confidence,
                 "reasoning": assessment.reasoning,
                 "signals": assessment.signals,
@@ -454,6 +522,7 @@ def save_assessment(spec_dir: Path, assessment: ComplexityAssessment) -> Path:
                 "phases_to_run": phases,
                 "needs_research": assessment.needs_research,
                 "needs_self_critique": assessment.needs_self_critique,
+                "needs_human_input": assessment.needs_human_input,
                 "created_at": datetime.now().isoformat(),
             },
             f,

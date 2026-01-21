@@ -14,6 +14,7 @@ import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
 import { IFlowAPI, createIFlowAPI } from './modules/iflow-api';
 import { HumanInputAPI, createHumanInputAPI } from './modules/human-input-api';
+import { ProviderSwitchAPI, createProviderSwitchAPI } from './modules/provider-switch-api';
 import { ProfileAPI, createProfileAPI } from './profile-api';
 
 export interface ElectronAPI extends
@@ -32,6 +33,7 @@ export interface ElectronAPI extends
   McpAPI,
   IFlowAPI,
   HumanInputAPI,
+  ProviderSwitchAPI,
   ProfileAPI {
   github: GitHubAPI;
 }
@@ -49,6 +51,7 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createMcpAPI(),
   ...createIFlowAPI(),
   ...createHumanInputAPI(),
+  ...createProviderSwitchAPI(),
   ...createProfileAPI(),
   github: createGitHubAPI()
 });
@@ -69,7 +72,8 @@ export {
   createClaudeCodeAPI,
   createMcpAPI,
   createIFlowAPI,
-  createHumanInputAPI
+  createHumanInputAPI,
+  createProviderSwitchAPI
 };
 
 export type {
@@ -89,5 +93,6 @@ export type {
   ClaudeCodeAPI,
   McpAPI,
   IFlowAPI,
-  HumanInputAPI
+  HumanInputAPI,
+  ProviderSwitchAPI
 };

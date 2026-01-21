@@ -5,9 +5,14 @@ Human Input Tools
 Tools for requesting human input during agent execution.
 """
 
+import asyncio
 import json
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     from claude_agent_sdk import tool
@@ -16,6 +21,9 @@ try:
 except ImportError:
     SDK_TOOLS_AVAILABLE = False
     tool = None
+
+# Thread pool for running blocking human input operations
+_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="human_input_")
 
 
 def create_human_input_tools(spec_dir: Path, project_dir: Path) -> list:
@@ -115,15 +123,32 @@ def create_human_input_tools(spec_dir: Path, project_dir: Path) -> list:
         # Get current phase and subtask from implementation plan
         phase, subtask_id = _get_current_context(spec_dir)
 
-        answer = human_input.request_choice(
-            title=title,
-            description=description,
-            options=options,
-            context=context,
-            timeout=300,  # 5 minutes
-            phase=phase,
-            subtask_id=subtask_id,
-        )
+        # Run blocking request_choice in thread pool to avoid blocking async event loop
+        try:
+            loop = asyncio.get_running_loop()
+            answer = await loop.run_in_executor(
+                _executor,
+                lambda: human_input.request_choice(
+                    title=title,
+                    description=description,
+                    options=options,
+                    context=context,
+                    timeout=300,  # 5 minutes
+                    phase=phase,
+                    subtask_id=subtask_id,
+                ),
+            )
+        except Exception as e:
+            # Log the error and return a descriptive message
+            logger.error(f"request_human_choice failed: {e}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Error requesting human input: {str(e)}. Proceeding with your best judgment.",
+                    }
+                ]
+            }
 
         if answer is None:
             return {
@@ -189,15 +214,31 @@ def create_human_input_tools(spec_dir: Path, project_dir: Path) -> list:
 
         phase, subtask_id = _get_current_context(spec_dir)
 
-        answer = human_input.request_text(
-            title=title,
-            description=description,
-            placeholder=placeholder,
-            context=context,
-            timeout=300,
-            phase=phase,
-            subtask_id=subtask_id,
-        )
+        # Run blocking request_text in thread pool to avoid blocking async event loop
+        try:
+            loop = asyncio.get_running_loop()
+            answer = await loop.run_in_executor(
+                _executor,
+                lambda: human_input.request_text(
+                    title=title,
+                    description=description,
+                    placeholder=placeholder,
+                    context=context,
+                    timeout=300,
+                    phase=phase,
+                    subtask_id=subtask_id,
+                ),
+            )
+        except Exception as e:
+            logger.error(f"request_human_text failed: {e}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Error requesting human input: {str(e)}. Proceeding with a sensible default.",
+                    }
+                ]
+            }
 
         if answer is None:
             return {
@@ -246,14 +287,30 @@ def create_human_input_tools(spec_dir: Path, project_dir: Path) -> list:
 
         phase, subtask_id = _get_current_context(spec_dir)
 
-        answer = human_input.request_confirm(
-            title=title,
-            description=description,
-            context=context,
-            timeout=300,
-            phase=phase,
-            subtask_id=subtask_id,
-        )
+        # Run blocking request_confirm in thread pool to avoid blocking async event loop
+        try:
+            loop = asyncio.get_running_loop()
+            answer = await loop.run_in_executor(
+                _executor,
+                lambda: human_input.request_confirm(
+                    title=title,
+                    description=description,
+                    context=context,
+                    timeout=300,
+                    phase=phase,
+                    subtask_id=subtask_id,
+                ),
+            )
+        except Exception as e:
+            logger.error(f"request_human_confirm failed: {e}")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Error requesting human confirmation: {str(e)}. Do NOT proceed with risky operations.",
+                    }
+                ]
+            }
 
         if answer is None:
             return {

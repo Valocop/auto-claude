@@ -43,6 +43,7 @@ class Icons:
     COMMIT = ("◉", "(@)")
     LIGHTNING = ("⚡", "!")
     LINK = ("🔗", "[L]")  # For PR URLs
+    QUESTION = ("❓", "[?]")  # For human input/clarification
 
     # Progress
     SUBTASK = ("▣", "#")
