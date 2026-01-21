@@ -84,6 +84,14 @@ export const taskMock = {
 
   unwatchTaskLogs: async () => ({ success: true }),
 
+  // Human input operations (agent questions during execution)
+  humanInputCheck: async () => ({ success: true, data: null }),
+  humanInputAnswer: async () => ({ success: true }),
+  humanInputSkip: async () => ({ success: true }),
+  humanInputWatch: async () => ({ success: true }),
+  humanInputUnwatch: async () => ({ success: true }),
+  onHumanInputChanged: () => () => {},
+
   // Event Listeners (no-op in browser)
   onTaskProgress: () => () => {},
   onTaskError: () => () => {},

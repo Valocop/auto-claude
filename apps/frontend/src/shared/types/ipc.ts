@@ -45,6 +45,7 @@ import type {
   TaskLogStreamChunk,
   ImageAttachment
 } from './task';
+import type { HumanInputRequest } from './human-input';
 import type {
   TerminalCreateOptions,
   TerminalSession,
@@ -184,6 +185,14 @@ export interface ElectronAPI {
   // Task archive operations
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
+
+  // Human input operations (agent questions during execution)
+  humanInputCheck: (specPath: string) => Promise<IPCResult<HumanInputRequest | null>>;
+  humanInputAnswer: (specPath: string, answer: string | string[] | boolean) => Promise<IPCResult>;
+  humanInputSkip: (specPath: string) => Promise<IPCResult>;
+  humanInputWatch: (specPath: string) => Promise<IPCResult>;
+  humanInputUnwatch: (specPath: string) => Promise<IPCResult>;
+  onHumanInputChanged: (callback: (data: { specPath: string; request: HumanInputRequest }) => void) => () => void;
 
   // Event listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
