@@ -488,10 +488,34 @@ export class ProjectStore {
         const stagedInMainProject = planWithStaged?.stagedInMainProject;
         const stagedAt = planWithStaged?.stagedAt;
 
-        // Determine title - check if feature looks like a spec ID (e.g., "054-something-something")
-        // For JSON error tasks, use directory name with marker for i18n suffix
-        let title = hasJsonError ? `${dir.name}${JSON_ERROR_TITLE_SUFFIX}` : (plan?.feature || plan?.title || dir.name);
-        const looksLikeSpecId = /^\d{3}-/.test(title) && !hasJsonError;
+        // Determine title - PRIORITY: user's original input over AI-generated names
+        // 1. First try requirements.json task_description (original user input)
+        // 2. Then plan.feature/title (may be modified by AI)
+        // 3. Then extract from spec.md if available
+        // 4. Finally, directory name as fallback
+        let title = dir.name; // Start with fallback
+
+        // PRIORITY 1: Original user input from requirements.json
+        const requirementsPathForTitle = path.join(specPath, AUTO_BUILD_PATHS.REQUIREMENTS);
+        if (existsSync(requirementsPathForTitle)) {
+          try {
+            const reqContent = readFileSync(requirementsPathForTitle, 'utf-8');
+            const requirements = JSON.parse(reqContent);
+            if (requirements.task_description && requirements.task_description.trim()) {
+              title = requirements.task_description.trim();
+            }
+          } catch {
+            // Ignore parse errors, continue to next priority
+          }
+        }
+
+        // PRIORITY 2: If no requirements.json, try plan.feature/title
+        if (title === dir.name) {
+          title = plan?.feature || plan?.title || dir.name;
+        }
+
+        // PRIORITY 3: If title looks like a spec ID, try to extract from spec.md
+        const looksLikeSpecId = /^\d{3}-/.test(title);
         if (looksLikeSpecId && existsSync(specFilePath)) {
           try {
             const specContent = readFileSync(specFilePath, 'utf-8');

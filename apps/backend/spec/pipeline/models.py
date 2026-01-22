@@ -266,6 +266,7 @@ PHASE_DISPLAY: dict[str, tuple[str, str]] = {
     "historical_context": ("HISTORICAL CONTEXT", Icons.SEARCH),
     "requirements": ("REQUIREMENTS GATHERING", Icons.FILE),
     "complexity_assessment": ("COMPLEXITY ASSESSMENT", Icons.GEAR),
+    "clarification": ("CLARIFICATION (HUMAN INPUT)", Icons.QUESTION),
     "research": ("INTEGRATION RESEARCH", Icons.SEARCH),
     "context": ("CONTEXT DISCOVERY", Icons.FOLDER),
     "quick_spec": ("QUICK SPEC", Icons.LIGHTNING),

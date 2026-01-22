@@ -143,6 +143,11 @@ from core.auth import (
     require_auth_token,
     validate_token_not_encrypted,
 )
+from core.iflow_client import (
+    IFlowAgentClient,
+    create_iflow_agent_client,
+    is_iflow_enabled,
+)
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
@@ -450,7 +455,8 @@ def create_client(
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
     agents: dict | None = None,
-) -> ClaudeSDKClient:
+    provider: str = "claude",
+) -> ClaudeSDKClient | IFlowAgentClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
 
@@ -461,7 +467,7 @@ def create_client(
     Args:
         project_dir: Root directory for the project (working directory)
         spec_dir: Directory containing the spec (for settings file)
-        model: Claude model to use
+        model: Claude model to use (for Claude) or iFlow model ID (for iFlow)
         agent_type: Agent type identifier from AGENT_CONFIGS
                    (e.g., 'coder', 'planner', 'qa_reviewer', 'spec_gatherer')
         max_thinking_tokens: Token budget for extended thinking (None = disabled)
@@ -476,12 +482,17 @@ def create_client(
                Format: {"agent-name": {"description": "...", "prompt": "...",
                         "tools": [...], "model": "inherit"}}
                See: https://platform.claude.com/docs/en/agent-sdk/subagents
+        provider: AI provider to use ('claude' or 'iflow'). Default: 'claude'.
+                 When 'iflow' is selected, returns an IFlowAgentClient instead.
+                 Note: iFlow does not support tool use or MCP servers.
 
     Returns:
-        Configured ClaudeSDKClient
+        Configured ClaudeSDKClient (if provider='claude') or
+        IFlowAgentClient (if provider='iflow')
 
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
+        ValueError: If provider='iflow' but iFlow is not enabled/configured
 
     Security layers (defense in depth):
     1. Sandbox - OS-level bash command isolation prevents filesystem escape
@@ -490,6 +501,22 @@ def create_client(
        (see security.py for ALLOWED_COMMANDS)
     4. Tool filtering - Each agent type only sees relevant tools (prevents misuse)
     """
+    # Handle iFlow provider selection
+    if provider == "iflow":
+        if not is_iflow_enabled():
+            raise ValueError(
+                "iFlow provider requested but not available. "
+                "Set IFLOW_ENABLED=true and IFLOW_API_KEY in your environment."
+            )
+
+        logger.info(f"Creating iFlow agent client for {agent_type}")
+        return create_iflow_agent_client(
+            project_dir=project_dir,
+            spec_dir=spec_dir,
+            model=model if model else None,  # Let iFlow choose recommended model
+            agent_type=agent_type,
+        )
+
     # Get OAuth token - Claude CLI handles token lifecycle internally
     oauth_token = require_auth_token()
 

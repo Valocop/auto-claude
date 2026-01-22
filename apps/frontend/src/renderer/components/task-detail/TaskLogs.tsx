@@ -89,10 +89,26 @@ function getPhaseConfig(
 
   // Auto profile with per-phase config
   if (metadata.isAutoProfile && metadata.phaseModels && metadata.phaseThinking) {
-    const model = metadata.phaseModels[configPhase];
+    const phaseModel = (metadata.phaseModels as any)[configPhase];
     const thinking = metadata.phaseThinking[configPhase];
+    // phaseModel can be either ModelTypeShort (legacy) or PhaseConfig (new format)
+    let modelLabel: string;
+    if (typeof phaseModel === 'string') {
+      // Legacy format (ModelTypeShort)
+      modelLabel = (phaseModel in MODEL_SHORT_LABELS ? MODEL_SHORT_LABELS[phaseModel as ModelTypeShort] : phaseModel);
+    } else if (phaseModel && typeof phaseModel === 'object' && 'model' in phaseModel) {
+      // New format (PhaseConfig)
+      const modelValue = phaseModel.model;
+      if (typeof modelValue === 'string' && modelValue in MODEL_SHORT_LABELS) {
+        modelLabel = MODEL_SHORT_LABELS[modelValue as ModelTypeShort];
+      } else {
+        modelLabel = String(modelValue);
+      }
+    } else {
+      modelLabel = 'Unknown';
+    }
     return {
-      model: MODEL_SHORT_LABELS[model] || model,
+      model: modelLabel,
       thinking: THINKING_SHORT_LABELS[thinking] || thinking
     };
   }
@@ -179,6 +195,11 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
   const status = phaseLog?.status || 'pending';
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
 
+  // Get provider/model from phaseLog if available (from iFlow integration)
+  const phaseProvider = phaseLog?.provider;
+  const phaseModel = phaseLog?.model;
+  const phaseThinking = phaseLog?.thinking_level;
+
   const getStatusBadge = () => {
     switch (status) {
       case 'active':
@@ -250,17 +271,31 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, p
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Model and thinking level indicator */}
-            {phaseConfig && (
+            {/* Provider/Model indicator - prefer phase log data over metadata config */}
+            {(phaseProvider || phaseModel || phaseConfig) && (
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-0.5" title={`Model: ${phaseConfig.model}`}>
+                {/* Provider badge (iFlow integration) */}
+                {phaseProvider && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[9px] px-1 py-0',
+                      phaseProvider === 'iflow' ? 'border-cyan-500/30 text-cyan-500' : 'border-purple-500/30 text-purple-500'
+                    )}
+                  >
+                    {phaseProvider === 'iflow' ? 'iFlow' : 'Claude'}
+                  </Badge>
+                )}
+                {/* Model indicator */}
+                <div className="flex items-center gap-0.5" title={`Model: ${phaseModel || phaseConfig?.model}`}>
                   <Cpu className="h-3 w-3" />
-                  <span>{phaseConfig.model}</span>
+                  <span>{phaseModel || phaseConfig?.model}</span>
                 </div>
                 <span className="text-muted-foreground/50">|</span>
-                <div className="flex items-center gap-0.5" title={`Thinking: ${phaseConfig.thinking}`}>
+                {/* Thinking level indicator */}
+                <div className="flex items-center gap-0.5" title={`Thinking: ${phaseThinking || phaseConfig?.thinking}`}>
                   <Brain className="h-3 w-3" />
-                  <span>{phaseConfig.thinking}</span>
+                  <span>{phaseThinking || phaseConfig?.thinking || 'None'}</span>
                 </div>
               </div>
             )}

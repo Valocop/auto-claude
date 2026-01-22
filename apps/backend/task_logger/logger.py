@@ -46,6 +46,10 @@ class TaskLogger:
         self.current_session: int | None = None
         self.current_subtask: str | None = None
         self.storage = LogStorage(spec_dir)
+        # Provider/model tracking for iFlow integration
+        self.current_provider: str | None = None
+        self.current_model: str | None = None
+        self.current_thinking_level: str | None = None
 
     @property
     def _data(self) -> dict:
@@ -119,7 +123,32 @@ class TaskLogger:
         """Set the current subtask being processed."""
         self.current_subtask = subtask_id
 
-    def start_phase(self, phase: LogPhase, message: str | None = None) -> None:
+    def set_provider_info(
+        self,
+        provider: str | None = None,
+        model: str | None = None,
+        thinking_level: str | None = None,
+    ) -> None:
+        """
+        Set provider/model information for subsequent log entries.
+
+        Args:
+            provider: AI provider ('claude' or 'iflow')
+            model: Model ID (e.g., 'claude-sonnet-4-5', 'deepseek-v3')
+            thinking_level: Thinking level for Claude ('none', 'medium', 'high', 'ultrathink')
+        """
+        self.current_provider = provider
+        self.current_model = model
+        self.current_thinking_level = thinking_level
+
+    def start_phase(
+        self,
+        phase: LogPhase,
+        message: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+        thinking_level: str | None = None,
+    ) -> None:
         """
         Start a new phase, auto-closing any stale active phases.
 
@@ -130,9 +159,20 @@ class TaskLogger:
         Args:
             phase: The phase to start
             message: Optional message to log at phase start
+            provider: AI provider for this phase ('claude' or 'iflow')
+            model: Model ID for this phase (e.g., 'claude-sonnet-4-5', 'deepseek-v3')
+            thinking_level: Thinking level for Claude ('none', 'medium', 'high', 'ultrathink')
         """
         self.current_phase = phase
         phase_key = phase.value
+
+        # Set provider info for this phase
+        if provider:
+            self.current_provider = provider
+        if model:
+            self.current_model = model
+        if thinking_level:
+            self.current_thinking_level = thinking_level
 
         # Auto-close any other active phases (handles restart/recovery scenarios)
         for other_phase_key, phase_data in self._data["phases"].items():
@@ -155,17 +195,39 @@ class TaskLogger:
         self.storage.update_phase_status(phase_key, "active")
         self.storage.set_phase_started(phase_key, self._timestamp())
 
-        # Emit marker for UI
-        self._emit("PHASE_START", {"phase": phase_key, "timestamp": self._timestamp()})
+        # Store provider/model info for this phase
+        if self.current_provider or self.current_model or self.current_thinking_level:
+            self.storage.set_phase_provider_info(
+                phase_key,
+                provider=self.current_provider,
+                model=self.current_model,
+                thinking_level=self.current_thinking_level,
+            )
 
-        # Add phase start entry
+        # Emit marker for UI with provider info
+        emit_data = {"phase": phase_key, "timestamp": self._timestamp()}
+        if self.current_provider:
+            emit_data["provider"] = self.current_provider
+        if self.current_model:
+            emit_data["model"] = self.current_model
+        if self.current_thinking_level:
+            emit_data["thinking_level"] = self.current_thinking_level
+        self._emit("PHASE_START", emit_data)
+
+        # Add phase start entry with provider info
         phase_message = message or f"Starting {phase_key} phase"
+        if self.current_provider and self.current_model:
+            phase_message = (
+                f"{phase_message} (using {self.current_provider}/{self.current_model})"
+            )
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_START.value,
             content=phase_message,
             phase=phase_key,
             session=self.current_session,
+            provider=self.current_provider,
+            model=self.current_model,
         )
         self._add_entry(entry)
 
@@ -249,20 +311,24 @@ class TaskLogger:
             phase=phase_key,
             subtask_id=self.current_subtask,
             session=self.current_session,
+            provider=self.current_provider,
+            model=self.current_model,
         )
         self._add_entry(entry)
 
-        # Emit streaming marker
-        self._emit(
-            "TEXT",
-            {
-                "content": content,
-                "phase": phase_key,
-                "type": entry_type.value,
-                "subtask_id": self.current_subtask,
-                "timestamp": self._timestamp(),
-            },
-        )
+        # Emit streaming marker with provider info
+        emit_data = {
+            "content": content,
+            "phase": phase_key,
+            "type": entry_type.value,
+            "subtask_id": self.current_subtask,
+            "timestamp": self._timestamp(),
+        }
+        if self.current_provider:
+            emit_data["provider"] = self.current_provider
+        if self.current_model:
+            emit_data["model"] = self.current_model
+        self._emit("TEXT", emit_data)
 
         # Debug log (when DEBUG=true)
         self._debug_log(content, entry_type, phase_key, subtask=self.current_subtask)
@@ -533,3 +599,101 @@ class TaskLogger:
     def clear(self) -> None:
         """Clear all logs (useful for testing)."""
         self.storage = LogStorage(self.spec_dir)
+
+    def log_execution_context(
+        self,
+        current_subtask: dict | None = None,
+        current_phase: dict | None = None,
+        plan_summary: dict | None = None,
+        next_subtasks: list[dict] | None = None,
+        phase: LogPhase | None = None,
+    ) -> None:
+        """
+        Log execution context showing what's happening now and what's coming next.
+
+        This provides visibility into the task execution flow for users watching the logs.
+
+        Args:
+            current_subtask: Current subtask being executed {id, description, status}
+            current_phase: Current phase info {id, name, completed, total}
+            plan_summary: Overall plan summary {total_phases, total_subtasks, completed_subtasks, ...}
+            next_subtasks: List of upcoming subtasks [{id, description}, ...]
+            phase: Log phase override
+        """
+        phase_key = (phase or self.current_phase or LogPhase.CODING).value
+
+        # Build context message
+        lines = ["📋 **Execution Context**"]
+
+        # Overall progress
+        if plan_summary:
+            total = plan_summary.get("total_subtasks", 0)
+            completed = plan_summary.get("completed_subtasks", 0)
+            pending = plan_summary.get("pending_subtasks", 0)
+            in_progress = plan_summary.get("in_progress_subtasks", 0)
+            pct = int((completed / total * 100) if total > 0 else 0)
+            lines.append(
+                f"   Overall: {completed}/{total} subtasks ({pct}%) | {pending} pending, {in_progress} in progress"
+            )
+
+        # Current phase
+        if current_phase:
+            phase_name = current_phase.get("name", "Unknown")
+            phase_completed = current_phase.get("completed", 0)
+            phase_total = current_phase.get("total", 0)
+            lines.append(
+                f"   Phase: {phase_name} ({phase_completed}/{phase_total} subtasks)"
+            )
+
+        # Current subtask
+        if current_subtask:
+            subtask_id = current_subtask.get("id", "unknown")
+            subtask_desc = current_subtask.get("description", "")
+            # Truncate long descriptions
+            if len(subtask_desc) > 60:
+                subtask_desc = subtask_desc[:57] + "..."
+            lines.append(f"   ▶ NOW: [{subtask_id}] {subtask_desc}")
+
+        # Upcoming subtasks (show max 3)
+        if next_subtasks and len(next_subtasks) > 0:
+            lines.append("   📌 NEXT:")
+            for i, subtask in enumerate(next_subtasks[:3]):
+                subtask_id = subtask.get("id", "unknown")
+                subtask_desc = subtask.get("description", "")
+                if len(subtask_desc) > 50:
+                    subtask_desc = subtask_desc[:47] + "..."
+                lines.append(f"      {i + 1}. [{subtask_id}] {subtask_desc}")
+            remaining = len(next_subtasks) - 3
+            if remaining > 0:
+                lines.append(f"      ... and {remaining} more")
+
+        content = "\n".join(lines)
+
+        # Create log entry
+        entry = LogEntry(
+            timestamp=self._timestamp(),
+            type=LogEntryType.INFO.value,
+            content=content,
+            phase=phase_key,
+            subtask_id=self.current_subtask,
+            session=self.current_session,
+            provider=self.current_provider,
+            model=self.current_model,
+        )
+        self._add_entry(entry)
+
+        # Emit streaming marker
+        self._emit(
+            "EXECUTION_CONTEXT",
+            {
+                "content": content,
+                "phase": phase_key,
+                "current_subtask": current_subtask,
+                "current_phase": current_phase,
+                "plan_summary": plan_summary,
+                "timestamp": self._timestamp(),
+            },
+        )
+
+        # Print to console
+        print(content, flush=True)

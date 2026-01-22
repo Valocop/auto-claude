@@ -46,5 +46,8 @@
   },
   "overrides": {
     "@electron/rebuild": "4.0.2"
+  },
+  "dependencies": {
+    "agentkeepalive": "^4.6.0"
   }
 }

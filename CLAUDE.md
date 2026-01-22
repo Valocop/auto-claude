@@ -11,15 +11,18 @@ Auto Claude is a multi-agent autonomous coding framework that builds software th
 ## Project Structure
 
 ```
-autonomous-coding/
+auto-claude/
 ├── apps/
 │   ├── backend/           # Python backend/CLI - ALL agent logic lives here
-│   │   ├── core/          # Client, auth, security
+│   │   ├── core/          # Client, auth, security, human_input, provider_switch, iflow_client
 │   │   ├── agents/        # Agent implementations
+│   │   │   └── tools_pkg/ # Tool definitions including human_input tools
 │   │   ├── spec_agents/   # Spec creation agents
-│   │   ├── integrations/  # Graphiti, Linear, GitHub
+│   │   ├── integrations/  # Graphiti, Linear, GitHub, iFlow
+│   │   │   └── iflow/     # iFlow MCP server integration
 │   │   └── prompts/       # Agent system prompts
 │   └── frontend/          # Electron desktop UI
+│       └── src/renderer/components/task-detail/  # Human input & provider switch dialogs
 ├── guides/                # Documentation
 ├── tests/                 # Test suite
 └── scripts/               # Build and utility scripts
@@ -74,6 +77,9 @@ python spec_runner.py --task "Add user authentication"
 
 # Force complexity level (simple/standard/complex)
 python spec_runner.py --task "Fix button" --complexity simple
+
+# Use iFlow provider for spec creation (cost-effective)
+python spec_runner.py --task "Add user authentication" --provider iflow
 
 # Run autonomous build
 python run.py --spec 001
@@ -200,6 +206,15 @@ See [RELEASE.md](RELEASE.md) for detailed release process documentation.
   - Enabled with `ELECTRON_MCP_ENABLED=true` in `.env`
   - Allows QA agents to interact with running Electron app
   - See "End-to-End Testing" section for details
+- **integrations/iflow/** - iFlow alternative AI provider integration
+  - Cost-effective models (DeepSeek, Qwen3, Kimi K2)
+  - Automatic fallback and rate limit handling
+  - See "iFlow Provider" section for details
+
+**Human Input System:**
+- **core/human_input.py** - HumanInputManager for user input requests during agent execution
+- **core/provider_switch.py** - ProviderSwitchManager for automatic provider switching
+- **agents/tools_pkg/tools/human_input.py** - SDK tools for human input (choice, text, confirm)
 
 ### Agent Prompts (apps/backend/prompts/)
 
@@ -225,6 +240,8 @@ Each spec in `.auto-claude/specs/XXX-name/` contains:
 - `implementation_plan.json` - Subtask-based plan with status tracking
 - `qa_report.md` - QA validation results
 - `QA_FIX_REQUEST.md` - Issues to fix (when rejected)
+- `human_input.json` - Active human input request (during execution)
+- `provider_switch.json` - Provider switch request (when using iFlow)
 
 ### Branching & Worktree Strategy
 
@@ -309,10 +326,11 @@ response = client.create_agent_session(
 
 **Why use the SDK:**
 - Pre-configured security (sandbox, allowlists, hooks)
-- Automatic MCP server integration (Context7, Linear, Graphiti, Electron, Puppeteer)
+- Automatic MCP server integration (Context7, Linear, Graphiti, Electron, Puppeteer, iFlow)
 - Tool permissions based on agent role
 - Session management and recovery
 - Unified API across all agent types
+- Human input tools for interactive agent sessions
 
 **Where to find working examples:**
 - `apps/backend/agents/planner.py` - Planner agent
@@ -330,8 +348,8 @@ Auto Claude uses Graphiti as its primary memory system with embedded LadybugDB (
 - **Graph database with semantic search** - Knowledge graph for cross-session context
 - **Session insights** - Patterns, gotchas, discoveries automatically extracted
 - **Multi-provider support:**
-  - LLM: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI (Gemini)
-  - Embedders: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI
+  - LLM: OpenAI, Anthropic, Azure OpenAI, Ollama, Google AI (Gemini), iFlow, OpenRouter
+  - Embedders: OpenAI, Voyage AI, Azure OpenAI, Ollama, Google AI, OpenRouter
 - **Modular architecture:** (`integrations/graphiti/queries_pkg/`)
   - `graphiti.py` - Main GraphitiMemory class
   - `client.py` - LadybugDB client wrapper
@@ -352,6 +370,186 @@ memory = get_graphiti_memory(spec_dir, project_dir)
 context = memory.get_context_for_session("Implementing feature X")
 memory.add_session_insight("Pattern: use React hooks for state")
 ```
+
+### iFlow Provider (Alternative AI Backend)
+
+iFlow provides access to cost-effective AI models through an OpenAI-compatible API. It's used as an alternative to Claude for certain agent types where full MCP tool support is not required.
+
+**Supported Models:**
+| Model | Best For | Capabilities |
+|-------|----------|--------------|
+| `deepseek-v3` | General tasks, research | Cost-effective, good reasoning |
+| `kimi-k2` | Planning, critique | Strong reasoning (thinking model) |
+| `qwen3-coder` | Code generation | Optimized for implementation |
+| `glm-4.7` | Chinese language | Translation, localization |
+
+**Agent-Model Mapping:**
+```python
+# Spec creation agents (can use iFlow)
+spec_gatherer → qwen3-coder
+spec_researcher → deepseek-v3
+spec_writer → kimi-k2
+spec_critic → kimi-k2
+
+# Build/QA agents (require Claude for MCP)
+planner → Claude (needs MCP tools)
+coder → Claude (needs MCP tools)
+qa_reviewer → Claude (needs browser MCP)
+qa_fixer → Claude (needs browser MCP)
+```
+
+**Configuration:**
+```bash
+# apps/backend/.env
+IFLOW_ENABLED=true
+IFLOW_API_KEY=your-api-key
+IFLOW_BASE_URL=https://apis.iflow.cn/v1  # Default
+IFLOW_DEFAULT_MODEL=deepseek-v3
+```
+
+**Using iFlow with spec_runner.py:**
+```bash
+# Use iFlow for spec creation (cost-effective)
+python spec_runner.py --task "Add feature" --provider iflow
+
+# Force Claude for all phases
+python spec_runner.py --task "Add feature" --provider claude
+```
+
+**Automatic Features:**
+- **Rate Limit Fallback**: Automatically switches models when rate limited (deepseek-v3 → qwen3-coder-plus)
+- **Model Fallback**: Automatically falls back to supported models if selected model unavailable
+- **Tool Calling**: Local tool execution via `core/iflow_tools.py`:
+  - File operations: Read, Write, Edit, Glob, Grep
+  - System: Bash
+  - Human input: request_human_choice, request_human_text, request_human_confirm (pauses execution, shows dialog in UI)
+- **Provider Switch**: Prompts user to switch to Claude when MCP tools are needed (Electron, Linear, etc.)
+
+**IMPORTANT for iFlow agents:**
+- Human input tools create `human_input.json` in spec directory
+- Agent pauses and polls until user answers in UI
+- Text questions in agent output are NOT seen by users - always use tools
+
+**Status Update Protection:**
+iFlow tools include protection against accidental bulk status updates in `implementation_plan.json`:
+- Using `replace_all=true` for status changes is **blocked** to prevent marking all subtasks as completed at once
+- Agents must update each subtask individually using targeted Edit or jq commands
+
+**Subtask Completion Flow:**
+1. Agent completes work for a subtask
+2. **MUST** update subtask status to "completed" in `implementation_plan.json` immediately
+3. Then move to next subtask
+4. **NEVER** ask "Would you like me to continue?" - this causes infinite loops since text output is not seen by users
+
+**Code Location:**
+- `core/iflow_client.py` - Client factory and configuration
+- `core/iflow_tools.py` - Local tool implementations for iFlow agents (Read, Write, Edit, Bash, Glob, Grep, human input tools)
+- `integrations/iflow/` - MCP server integration (optional)
+
+### Human Input System
+
+The Human Input system allows AI agents to pause execution and request input from users. This is used when agents need clarification, decisions, or user-specific information.
+
+**Key Components:**
+- **HumanInputManager** (`core/human_input.py`) - Backend manager for creating and polling requests
+- **Human Input Tools** (`agents/tools_pkg/tools/human_input.py`) - SDK tools exposed to agents
+- **Frontend Components** - React dialogs for displaying questions to users
+
+**Available Tools (Claude SDK only):**
+
+1. **`request_human_choice`** - Single selection from options
+   ```python
+   # Agent calls this when needing a decision
+   await request_human_choice({
+       "title": "Authentication Method",
+       "description": "Which authentication approach should we use?",
+       "options": [
+           {"id": "jwt", "label": "JWT Tokens", "recommended": True},
+           {"id": "session", "label": "Session Cookies"},
+           {"id": "oauth", "label": "OAuth 2.0"}
+       ],
+       "context": "This affects security architecture"
+   })
+   ```
+
+2. **`request_human_text`** - Free text input
+   ```python
+   await request_human_text({
+       "title": "API Endpoint",
+       "description": "What is the external API URL?",
+       "placeholder": "https://api.example.com/v1"
+   })
+   ```
+
+3. **`request_human_confirm`** - Yes/No confirmation
+   ```python
+   await request_human_confirm({
+       "title": "Delete Database",
+       "description": "This will permanently delete all data. Continue?",
+       "context": "This action cannot be undone"
+   })
+   ```
+
+**File-Based Protocol:**
+```
+.auto-claude/specs/XXX/human_input.json
+```
+- Agent writes request to file
+- Frontend polls and displays dialog
+- User responds via UI
+- Agent reads response and continues
+
+**Timeout Handling:**
+- Default timeout: 300 seconds (5 minutes)
+- On timeout: Agent receives `None` and proceeds with best judgment
+- On skip: User can skip question; agent uses recommended option or default
+
+**When Human Input is Used:**
+- **Spec Gatherer**: Clarifying requirements, understanding user needs
+- **Spec Discovery**: Asking about existing patterns or preferences
+- **Provider Switch**: Confirming switch from iFlow to Claude (see below)
+
+### Provider Switch System
+
+When using iFlow as the primary provider, certain operations require Claude (e.g., human input tools are only available with Claude SDK). The Provider Switch system handles this automatically.
+
+**Trigger Conditions:**
+```python
+# Reason codes that trigger provider switch dialog
+REASON_INVESTIGATION_TASK = "investigation_task"  # Task needs exploration/questions
+REASON_LOW_CONFIDENCE = "low_confidence"          # Complexity assessment uncertain
+REASON_HUMAN_INPUT_NEEDED = "human_input_needed"  # Agent needs to ask questions
+```
+
+**Flow:**
+1. Agent running on iFlow determines it needs human input
+2. `ProviderSwitchManager` writes request to `provider_switch.json`
+3. Frontend shows dialog asking user to confirm switch
+4. User chooses:
+   - **Switch**: Continue with Claude (enables human input tools)
+   - **Skip**: Continue with iFlow (agent makes best assumptions)
+5. Subsequent phases may use Claude based on user choice
+
+**Configuration:**
+```python
+# In orchestrator, hybrid mode is automatic
+orchestrator = SpecOrchestrator(
+    project_dir=project_dir,
+    provider="iflow"  # Start with iFlow
+)
+# If human input needed, orchestrator sets _needs_human_input = True
+# Subsequent phases automatically use Claude
+```
+
+**Frontend Component:**
+- `ProviderSwitchDialog.tsx` - Shows reason, timeout, and options
+- Displays which models are being switched (e.g., "iFlow → Claude")
+- 5-minute timeout with countdown
+
+**Code Location:**
+- `core/provider_switch.py` - Backend manager
+- `apps/frontend/src/renderer/components/task-detail/ProviderSwitchDialog.tsx` - UI
+- `apps/frontend/src/shared/types/human-input.ts` - TypeScript types
 
 ## Development Guidelines
 

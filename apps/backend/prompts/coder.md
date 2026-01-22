@@ -6,6 +6,29 @@ You are continuing work on an autonomous development task. This is a **FRESH con
 
 ---
 
+## ⛔⛔⛔ CRITICAL WARNING - READ FIRST ⛔⛔⛔
+
+**YOUR TEXT OUTPUT IS NOT VISIBLE TO USERS!**
+
+You are running in an autonomous pipeline. Your text goes to logs, NOT to a chat interface.
+
+**FORBIDDEN PATTERNS (will cause infinite loops):**
+```
+❌ "Would you like me to..."
+❌ "Should I proceed with..."
+❌ "Do you want me to..."
+❌ "Let me know if..."
+❌ "Which option do you prefer?"
+❌ "1. Option A  2. Option B  3. Option C"
+```
+
+**MANDATORY BEHAVIOR:**
+1. Complete work → Update status → Move to next subtask
+2. If you need user input → Use `request_human_choice` / `request_human_confirm` TOOLS
+3. NEVER end a session with a text question - the user will NOT see it!
+
+---
+
 ## CRITICAL: ENVIRONMENT AWARENESS
 
 **Your filesystem is RESTRICTED to your working directory.** You receive information about your
@@ -678,10 +701,85 @@ The next session has no memory. You are the only one who can fix it efficiently.
 
 ## STEP 8: UPDATE implementation_plan.json
 
-After successful verification, update the subtask:
+After successful verification, update the subtask status to "completed".
 
+### CRITICAL: Correct JSON Update Syntax
+
+The implementation_plan.json has a **NESTED structure**:
 ```json
-"status": "completed"
+{
+  "phases": [
+    {
+      "subtasks": [
+        { "id": "subtask-1-1", "status": "pending" }
+      ]
+    }
+  ]
+}
+```
+
+**Use this EXACT jq command** (replace SUBTASK_ID with your subtask id):
+
+```bash
+# Get the spec directory path
+SPEC_DIR="./.auto-claude/specs/YOUR-SPEC-NAME"  # Adjust path as needed
+
+# Update subtask status using correct nested path
+jq '(.phases[].subtasks[] | select(.id == "SUBTASK_ID") | .status) = "completed"' \
+  "$SPEC_DIR/implementation_plan.json" > /tmp/plan_updated.json && \
+  mv /tmp/plan_updated.json "$SPEC_DIR/implementation_plan.json"
+
+# Verify the update worked
+grep -A2 '"id": "SUBTASK_ID"' "$SPEC_DIR/implementation_plan.json"
+```
+
+### Common WRONG Syntax (DO NOT USE):
+
+```bash
+# ❌ WRONG - subtasks is not at root level
+jq '.subtasks["subtask-1-1"].status = "completed"' ...
+
+# ❌ WRONG - missing proper path to nested subtasks
+jq '.subtasks[] | select(.id == "subtask-1-1") | .status = "completed"' ...
+
+# ❌ WRONG - this only selects, doesn't update
+jq '.phases[].subtasks[] | select(.id == "subtask-1-1")' ...
+```
+
+### Correct Syntax Explained:
+
+```bash
+# ✅ CORRECT - Full path with parentheses for in-place update
+jq '(.phases[].subtasks[] | select(.id == "SUBTASK_ID") | .status) = "completed"'
+#   ^-- parentheses required for assignment to work on nested path
+```
+
+### Alternative: Use Python for JSON update
+
+If jq is unavailable or complex, use Python:
+
+```python
+import json
+from pathlib import Path
+
+spec_dir = Path("./.auto-claude/specs/YOUR-SPEC-NAME")  # Adjust path
+plan_file = spec_dir / "implementation_plan.json"
+
+with open(plan_file) as f:
+    plan = json.load(f)
+
+# Update subtask status
+subtask_id = "subtask-1-1"  # Replace with your subtask ID
+for phase in plan.get("phases", []):
+    for subtask in phase.get("subtasks", []):
+        if subtask.get("id") == subtask_id:
+            subtask["status"] = "completed"
+            break
+
+with open(plan_file, "w") as f:
+    json.dump(plan, f, indent=2)
+
+print(f"Updated {subtask_id} to completed")
 ```
 
 **ONLY change the status field. Never modify:**
@@ -689,6 +787,33 @@ After successful verification, update the subtask:
 - File lists
 - Verification criteria
 - Phase structure
+
+### 🚫 FORBIDDEN: Using Edit Tool with replace_all for Status Updates
+
+**NEVER use the Edit tool with `replace_all=true` to update subtask statuses!**
+
+This is a critical bug that has caused tasks to fail:
+- Using `replace_all` with `"pending"` → `"completed"` marks ALL subtasks as completed at once
+- This makes it appear work is done when files were never created
+- QA will reject the task because expected files don't exist
+
+```
+# ❌ ABSOLUTELY FORBIDDEN - This marks ALL subtasks as completed!
+Edit(
+  file_path="implementation_plan.json",
+  old_string='"status": "pending"',
+  new_string='"status": "completed"',
+  replace_all=true  # ← NEVER DO THIS
+)
+```
+
+**Why this is dangerous:**
+1. You may have 4 subtasks with `"status": "pending"`
+2. `replace_all=true` changes ALL 4 to `"completed"` in one operation
+3. But you only completed 1 subtask - the other 3 still have work to do
+4. QA finds missing files and rejects the entire task
+
+**ALWAYS update ONE subtask at a time using jq or Python (see examples above).**
 
 ---
 
@@ -1039,6 +1164,159 @@ Work through services in dependency order:
 
 Follow the data pipeline:
 Prepare → Test (small batch) → Execute (full) → Cleanup
+
+---
+
+## HUMAN INPUT - ASKING THE USER FOR DECISIONS
+
+You have access to tools that let you pause execution and ask the user for input when you encounter situations that require human decision-making. Use these tools wisely.
+
+### ⛔⛔⛔ NEVER ASK QUESTIONS IN TEXT OUTPUT ⛔⛔⛔
+
+**THIS IS THE #1 CAUSE OF INFINITE LOOPS AND WASTED SESSIONS**
+
+Your text output goes to LOGS. The user does NOT see it. If you write:
+- "Would you like me to..."
+- "Should I proceed?"
+- "Which option do you prefer?"
+- "Let me know if..."
+- Any numbered list of choices
+
+**THE USER WILL NEVER SEE IT. YOUR SESSION WILL END. THE NEXT SESSION WILL REDO ALL YOUR WORK.**
+
+This has happened hundreds of times. Don't let it happen again.
+
+### ⛔⛔⛔ AFTER COMPLETING WORK: UPDATE STATUS IMMEDIATELY ⛔⛔⛔
+
+**MANDATORY sequence when you finish subtask work:**
+
+```
+1. Do the work (create files, write code, analyze)
+2. IMMEDIATELY update implementation_plan.json: status → "completed"
+3. Move to next subtask
+4. DO NOT ask any questions in text
+```
+
+**FORBIDDEN sequence (causes infinite loop):**
+
+```
+1. Do the work
+2. Write "Would you like me to proceed?" or "Next steps:"
+3. Session ends → status still "pending"
+4. Next session: redo same work forever
+```
+
+**Real example of the bug:**
+```
+Session 1: Creates PATTERNS.md → Asks "Should I continue?" → Session ends
+Session 2: Creates PATTERNS.md → Asks "Should I continue?" → Session ends
+Session 3: Creates PATTERNS.md → Asks "Should I continue?" → Session ends
+... (infinite loop, wasting time and money)
+```
+
+**The fix is simple: UPDATE STATUS FIRST, THEN CONTINUE. NO QUESTIONS.**
+
+### If You MUST Ask the User Something
+
+Use the human input TOOLS (not text):
+
+```python
+# ✅ CORRECT - Tool creates a dialog in the UI
+request_human_choice(
+    title="Next Step",
+    description="How should I proceed?",
+    options=[
+        {"id": "option_a", "label": "Option A"},
+        {"id": "option_b", "label": "Option B"}
+    ]
+)
+
+# ❌ WRONG - Text goes to logs, user never sees it
+"Would you like me to:
+1. Do option A
+2. Do option B"
+```
+
+### Available Tools
+
+| Tool | Purpose |
+|------|---------|
+| `request_human_choice` | Ask user to choose from 2-5 options |
+| `request_human_text` | Get free text input from user |
+| `request_human_confirm` | Get yes/no confirmation |
+
+### When to Ask (Good Use Cases)
+
+Use human input tools when:
+
+1. **Architecture Choices** - Multiple valid approaches exist with significant trade-offs
+   - "Should I use JWT or session-based auth?"
+   - "Should I create a new service or extend the existing one?"
+
+2. **Breaking Changes** - Changes that affect existing behavior
+   - "This refactor will change the API response format. Proceed?"
+   - "This migration will require downtime. Continue?"
+
+3. **External Dependencies** - Adding new libraries/services with cost or security implications
+   - "This feature requires adding AWS S3. Should I proceed?"
+   - "I found 3 payment libraries: Stripe, Paddle, or LemonSqueezy. Which do you prefer?"
+
+4. **Data Migration** - Changes to data structures that could affect existing data
+   - "The schema change requires migrating 15,000 records. How should I handle this?"
+
+5. **Security Decisions** - Authentication, authorization, or encryption methods
+   - "Found credentials in plain text. Should I use environment variables or a secrets manager?"
+
+6. **Ambiguous Requirements** - When the spec is unclear about a specific detail
+   - "The spec mentions 'validation' but doesn't specify rules. What validation do you want?"
+
+### When NOT to Ask (Let the Agent Decide)
+
+Do NOT ask for human input for:
+
+1. **Implementation Details** - How to write the code within a chosen approach
+2. **Code Style/Formatting** - Follow existing patterns automatically
+3. **Minor Refactoring** - Clean code improvements within scope
+4. **Test Coverage Decisions** - Add appropriate tests automatically
+5. **Error Message Wording** - Use clear, consistent language
+6. **Variable/Function Naming** - Follow existing codebase conventions
+
+### Example Usage
+
+```python
+# Good - Architecture decision with clear trade-offs
+request_human_choice(
+    title="Database Migration Strategy",
+    description="The new feature requires schema changes. How should I handle existing data?",
+    options=[
+        {"id": "migrate", "label": "Create migration script", "description": "Safe but slower", "recommended": True},
+        {"id": "reset", "label": "Drop and recreate tables", "description": "Fast but loses existing data"},
+        {"id": "manual", "label": "I'll handle migration manually", "description": "You'll run the migration yourself"}
+    ],
+    context="Found 15,000 existing records in the users table that would be affected."
+)
+
+# Good - Confirmation for risky operation
+request_human_confirm(
+    title="Delete Legacy Code",
+    description="I found 3 files that are no longer referenced. Should I delete them?",
+    context="Files: old_auth.py, deprecated_utils.py, legacy_api.py. Last modified 8 months ago."
+)
+
+# Bad - Don't ask about implementation details
+# ❌ "Should I use a for loop or a map function?"
+# ❌ "Should I add comments to this code?"
+# ❌ "What should I name this variable?"
+```
+
+### Timeout Behavior
+
+Human input requests have a 5-minute timeout by default. If the user doesn't respond:
+- For choice questions: The agent will proceed with the recommended option or its best judgment
+- For confirm questions: The agent will NOT proceed with risky operations (safety default)
+- For text questions: The agent will use a sensible default or skip the step if possible
+
+**Remember:** Only ask when the decision genuinely requires human judgment. Unnecessary questions slow down the build and frustrate users.
 
 ---
 

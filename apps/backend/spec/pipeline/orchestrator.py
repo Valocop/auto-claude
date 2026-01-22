@@ -10,6 +10,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from analysis.analyzers import analyze_project
+from core.provider_switch import (
+    ProviderSwitchManager,
+    get_switch_reason_message,
+)
 from core.workspace.models import SpecNumberLock
 from phase_config import get_thinking_budget
 from prompts_pkg.project_context import should_refresh_project_index
@@ -61,6 +65,7 @@ class SpecOrchestrator:
         thinking_level: str = "medium",  # Thinking level for extended thinking
         complexity_override: str | None = None,  # Force a specific complexity
         use_ai_assessment: bool = True,  # Use AI for complexity assessment (vs heuristics)
+        provider: str = "claude",  # AI provider ('claude' or 'iflow')
     ):
         """Initialize the spec orchestrator.
 
@@ -73,6 +78,7 @@ class SpecOrchestrator:
             thinking_level: Thinking level (none, low, medium, high, ultrathink)
             complexity_override: Force a specific complexity level
             use_ai_assessment: Whether to use AI for complexity assessment
+            provider: AI provider to use ('claude' or 'iflow')
         """
         self.project_dir = Path(project_dir)
         self.task_description = task_description
@@ -80,6 +86,7 @@ class SpecOrchestrator:
         self.thinking_level = thinking_level
         self.complexity_override = complexity_override
         self.use_ai_assessment = use_ai_assessment
+        self.provider = provider
 
         # Get the appropriate specs directory (within the project)
         self.specs_dir = get_specs_dir(self.project_dir)
@@ -113,6 +120,10 @@ class SpecOrchestrator:
         # Stores summaries from completed phases to provide context to subsequent phases
         self._phase_summaries: dict[str, str] = {}
 
+        # Hybrid provider flag - set to True when human input is needed
+        # This causes subsequent phases to use Claude instead of iFlow
+        self._needs_human_input: bool = False
+
     def _get_agent_runner(self) -> AgentRunner:
         """Get or create the agent runner.
 
@@ -122,7 +133,11 @@ class SpecOrchestrator:
         if self._agent_runner is None:
             task_logger = get_task_logger(self.spec_dir)
             self._agent_runner = AgentRunner(
-                self.project_dir, self.spec_dir, self.model, task_logger
+                self.project_dir,
+                self.spec_dir,
+                self.model,
+                task_logger,
+                provider=self.provider,
             )
         return self._agent_runner
 
@@ -132,6 +147,7 @@ class SpecOrchestrator:
         additional_context: str = "",
         interactive: bool = False,
         phase_name: str | None = None,
+        force_claude: bool = False,
     ) -> tuple[bool, str]:
         """Run an agent with the given prompt.
 
@@ -140,6 +156,8 @@ class SpecOrchestrator:
             additional_context: Additional context to add
             interactive: Whether to run in interactive mode
             phase_name: Name of the phase (for thinking budget lookup)
+            force_claude: Force using Claude provider for this phase
+                         (for phases that need human input tools)
 
         Returns:
             Tuple of (success, response_text)
@@ -152,12 +170,25 @@ class SpecOrchestrator:
         # Format prior phase summaries for context
         prior_summaries = format_phase_summaries(self._phase_summaries)
 
+        # Determine provider override for hybrid mode
+        # Use Claude when:
+        # 1. force_claude is True (explicit request)
+        # 2. _needs_human_input is True and we're using iFlow
+        provider_override = None
+        if force_claude or (self._needs_human_input and self.provider == "iflow"):
+            provider_override = "claude"
+            print_status(
+                "Switching to Claude for human input support",
+                "info",
+            )
+
         return await runner.run_agent(
             prompt_file,
             additional_context,
             interactive,
             thinking_budget=thinking_budget,
             prior_phase_summaries=prior_summaries if prior_summaries else None,
+            provider_override=provider_override,
         )
 
     async def _store_phase_summary(self, phase_name: str) -> None:
@@ -336,6 +367,36 @@ class SpecOrchestrator:
                 LogPhase.PLANNING, success=False, message="Complexity assessment failed"
             )
             return False
+
+        # Check if human input is needed for hybrid provider mode
+        # This triggers Claude usage for phases that might need human input
+        if self.assessment and self.assessment.needs_human_input:
+            self._needs_human_input = True
+            if self.provider == "iflow":
+                # Request user confirmation before switching providers
+                switch_approved = await self._request_provider_switch_confirmation()
+
+                if switch_approved:
+                    # Run clarification phase with Claude to ask questions
+                    result = await run_phase(
+                        "clarification",
+                        lambda: self._phase_clarification_with_claude(),
+                    )
+                    results.append(result)
+                    if not result.success:
+                        print_status(
+                            "Clarification failed - continuing with available info",
+                            "warning",
+                        )
+                    # Store summary for subsequent phases
+                    await self._store_phase_summary("clarification")
+                else:
+                    # User declined switch - continue without clarification
+                    print_status(
+                        "Provider switch declined - continuing without human input phase",
+                        "info",
+                    )
+                    self._needs_human_input = False
 
         # Map of all available phases
         all_phases = {
@@ -586,6 +647,145 @@ class SpecOrchestrator:
 
         analyzer = complexity.ComplexityAnalyzer(project_index)
         return analyzer.analyze(self.task_description or "")
+
+    async def _request_provider_switch_confirmation(self) -> bool:
+        """Request user confirmation before switching from iFlow to Claude.
+
+        Displays a dialog explaining why the switch is needed and offers options:
+        - Switch to Claude (for human input support)
+        - Skip clarification (continue with iFlow without human input)
+
+        Returns:
+            True if user approved the switch, False otherwise
+        """
+        # Determine the reason for the switch
+        if self.assessment.workflow_type == "investigation":
+            reason_code = ProviderSwitchManager.REASON_INVESTIGATION_TASK
+        elif self.assessment.confidence < 0.7:
+            reason_code = ProviderSwitchManager.REASON_LOW_CONFIDENCE
+        else:
+            reason_code = ProviderSwitchManager.REASON_HUMAN_INPUT_NEEDED
+
+        reason = get_switch_reason_message(reason_code, self.task_description)
+
+        print_status(
+            f"Provider switch required (workflow: {self.assessment.workflow_type}, "
+            f"confidence: {self.assessment.confidence:.2f})",
+            "info",
+        )
+        print_status("Waiting for user confirmation...", "progress")
+
+        # Use ProviderSwitchManager to request confirmation
+        switch_manager = ProviderSwitchManager(self.spec_dir)
+
+        try:
+            approved, user_choice = switch_manager.request_switch(
+                current_provider=self.provider,
+                target_provider="claude",
+                reason=reason,
+                reason_code=reason_code,
+                task_description=self.task_description,
+                timeout=300,  # 5 minutes
+            )
+
+            if approved:
+                print_status("User approved provider switch to Claude", "success")
+            else:
+                if user_choice == "skip":
+                    print_status("User chose to skip clarification phase", "info")
+                else:
+                    print_status(
+                        "Provider switch request timed out or was declined", "warning"
+                    )
+
+            return approved
+        finally:
+            # Clean up the switch request file
+            switch_manager.cleanup()
+
+    async def _phase_clarification_with_claude(self) -> phases.PhaseResult:
+        """Run clarification phase with Claude to ask questions via human input tools.
+
+        This phase is triggered when:
+        1. Task was analyzed with iFlow and identified as needing human input
+        2. workflow_type is "investigation" or confidence is low
+
+        Uses Claude with human_input tools to:
+        - Ask clarifying questions
+        - Get user decisions
+        - Update requirements based on answers
+
+        Returns:
+            The phase result
+        """
+        # Build context from existing requirements
+        requirements_file = self.spec_dir / "requirements.json"
+        clarification_file = self.spec_dir / "clarification.json"
+
+        context = f"""
+## CLARIFICATION PHASE
+
+You are running a follow-up clarification phase because the initial task analysis identified
+that human input is needed. The task was classified as:
+- Workflow Type: {self.assessment.workflow_type if self.assessment else "unknown"}
+- Confidence: {self.assessment.confidence if self.assessment else 0}
+- Reasoning: {self.assessment.reasoning if self.assessment else "N/A"}
+
+## Your Goal
+
+Use the human input tools (request_human_choice, request_human_text, request_human_confirm)
+to ask the user for clarification on any unclear aspects of the task.
+
+## Current Requirements
+
+"""
+        if requirements_file.exists():
+            context += self._load_requirements_context(requirements_file)
+
+        context += """
+
+## Instructions
+
+1. Review the current requirements
+2. Identify what's unclear or needs clarification
+3. Use human input tools to ask questions (DON'T just print questions - USE THE TOOLS)
+4. After getting answers, update requirements.json with the clarified information
+5. If the user doesn't answer or times out, make reasonable assumptions and document them
+
+## Important
+
+- You MUST use request_human_choice, request_human_text, or request_human_confirm tools
+- These tools will pause execution and wait for user response
+- Do NOT proceed without asking at least one clarifying question
+"""
+
+        # Run the gatherer prompt with Claude (force_claude=True for human input support)
+        success, output = await self._run_agent(
+            "spec_gatherer.md",
+            additional_context=context,
+            force_claude=True,
+        )
+
+        # Save clarification output
+        if success:
+            with open(clarification_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "phase": "clarification",
+                        "output": output[:5000],  # Truncate if too long
+                        "success": True,
+                    },
+                    f,
+                    indent=2,
+                )
+
+        return phases.PhaseResult(
+            "clarification",
+            success,
+            [str(clarification_file)] if success else [],
+            [],
+            0,
+        )
 
     def _print_completion_summary(
         self, results: list[phases.PhaseResult], phases_executed: list[str]

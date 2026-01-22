@@ -2,7 +2,8 @@
  * Task-related types
  */
 
-import type { ThinkingLevel, PhaseModelConfig, PhaseThinkingConfig } from './settings';
+import type { ThinkingLevel, PhaseModelConfig as SettingsPhaseModelConfig, PhaseThinkingConfig } from './settings';
+import type { PhaseModelConfig } from './project';
 import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from '../constants/phase-protocol';
 
 export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review' | 'pr_created' | 'done' | 'error';
@@ -81,6 +82,9 @@ export interface TaskLogEntry {
   detail?: string;  // Full content that can be expanded (e.g., file contents, command output)
   subphase?: string;  // Subphase grouping (e.g., "PROJECT DISCOVERY", "CONTEXT GATHERING")
   collapsed?: boolean;  // Whether to show collapsed by default in UI
+  // Provider/model tracking for iFlow integration
+  provider?: 'claude' | 'iflow';  // AI provider used
+  model?: string;  // Model ID (e.g., 'claude-sonnet-4-5', 'deepseek-v3')
 }
 
 export interface TaskPhaseLog {
@@ -89,6 +93,10 @@ export interface TaskPhaseLog {
   started_at: string | null;
   completed_at: string | null;
   entries: TaskLogEntry[];
+  // Provider/model tracking for iFlow integration
+  provider?: 'claude' | 'iflow';  // AI provider used for this phase
+  model?: string;  // Model ID (e.g., 'claude-sonnet-4-5', 'deepseek-v3')
+  thinking_level?: string;  // For Claude: 'none', 'medium', 'high', 'ultrathink'
 }
 
 export interface TaskLogs {
@@ -114,6 +122,10 @@ export interface TaskLogStreamChunk {
     success?: boolean;
   };
   subtask_id?: string;
+  // Provider/model tracking for iFlow integration
+  provider?: 'claude' | 'iflow';
+  model?: string;
+  thinking_level?: string;
 }
 
 // Image attachment types for task creation
@@ -148,8 +160,8 @@ export interface TaskDraft {
   profileId?: string;  // Agent profile ID ('auto', 'complex', 'balanced', 'quick', 'custom')
   model: ModelType | '';
   thinkingLevel: ThinkingLevel | '';
-  // Auto profile - per-phase configuration
-  phaseModels?: PhaseModelConfig;
+  // Auto profile - per-phase configuration (legacy format from settings.ts)
+  phaseModels?: SettingsPhaseModelConfig;
   phaseThinking?: PhaseThinkingConfig;
   images: ImageAttachment[];
   referencedFiles: ReferencedFile[];
@@ -161,8 +173,7 @@ export interface TaskDraft {
 export type TaskComplexity = 'trivial' | 'small' | 'medium' | 'large' | 'complex';
 export type TaskImpact = 'low' | 'medium' | 'high' | 'critical';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
-// Re-export ThinkingLevel (defined in settings.ts) for convenience
-export type { ThinkingLevel };
+// Note: ThinkingLevel is exported from project.ts and settings.ts - use project.ts version for task-related types
 export type ModelType = 'haiku' | 'sonnet' | 'opus';
 export type TaskCategory =
   | 'feature'
@@ -230,7 +241,7 @@ export interface TaskMetadata {
   thinkingLevel?: ThinkingLevel;  // Thinking budget level (none, low, medium, high, ultrathink)
   // Auto profile - per-phase model configuration
   isAutoProfile?: boolean;  // True when using Auto (Optimized) profile
-  phaseModels?: PhaseModelConfig;  // Per-phase model configuration
+  phaseModels?: PhaseModelConfig | SettingsPhaseModelConfig;  // Per-phase model configuration (new format with provider support, or legacy format)
   phaseThinking?: PhaseThinkingConfig;  // Per-phase thinking configuration
 
   // Git/Worktree configuration

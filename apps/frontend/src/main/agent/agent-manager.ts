@@ -157,7 +157,12 @@ export class AgentManager extends EventEmitter {
     // For auto profile, use phase-specific config; otherwise use single model/thinking
     if (metadata?.isAutoProfile && metadata.phaseModels && metadata.phaseThinking) {
       // Pass the spec phase model and thinking level to spec_runner
-      args.push('--model', metadata.phaseModels.spec);
+      // Handle both simple (string) and extended (PhaseConfig object) formats
+      const specPhaseModel = metadata.phaseModels.spec;
+      const modelValue = typeof specPhaseModel === 'string' ? specPhaseModel : specPhaseModel?.model;
+      if (modelValue) {
+        args.push('--model', modelValue);
+      }
       args.push('--thinking-level', metadata.phaseThinking.spec);
     } else if (metadata?.model) {
       // Non-auto profile: use single model and thinking level

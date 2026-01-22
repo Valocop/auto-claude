@@ -45,6 +45,7 @@ import type {
   TaskLogStreamChunk,
   ImageAttachment
 } from './task';
+import type { HumanInputRequest, ProviderSwitchRequest, ProviderSwitchChoice } from './human-input';
 import type {
   TerminalCreateOptions,
   TerminalSession,
@@ -184,6 +185,21 @@ export interface ElectronAPI {
   // Task archive operations
   archiveTasks: (projectId: string, taskIds: string[], version?: string) => Promise<IPCResult<boolean>>;
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
+
+  // Human input operations (agent questions during execution)
+  humanInputCheck: (specPath: string) => Promise<IPCResult<HumanInputRequest | null>>;
+  humanInputAnswer: (specPath: string, answer: string | string[] | boolean) => Promise<IPCResult>;
+  humanInputSkip: (specPath: string) => Promise<IPCResult>;
+  humanInputWatch: (specPath: string) => Promise<IPCResult>;
+  humanInputUnwatch: (specPath: string) => Promise<IPCResult>;
+  onHumanInputChanged: (callback: (data: { specPath: string; request: HumanInputRequest }) => void) => () => void;
+
+  // Provider switch operations (system asking user to confirm provider change)
+  providerSwitchCheck: (specPath: string) => Promise<IPCResult<ProviderSwitchRequest | null>>;
+  providerSwitchAnswer: (specPath: string, choice: ProviderSwitchChoice) => Promise<IPCResult>;
+  providerSwitchWatch: (specPath: string) => Promise<IPCResult>;
+  providerSwitchUnwatch: (specPath: string) => Promise<IPCResult>;
+  onProviderSwitchChanged: (callback: (data: { specPath: string; request: ProviderSwitchRequest }) => void) => () => void;
 
   // Event listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
@@ -835,6 +851,10 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // iFlow integration operations
+  testIFlowConnection: (projectId: string, config: import('./project').IFlowConfig) => Promise<IPCResult<import('./project').IFlowSyncStatus>>;
+  discoverIFlowModels: (projectId: string, config: import('./project').IFlowConfig) => Promise<IPCResult<import('./project').IFlowModel[]>>;
 }
 
 declare global {

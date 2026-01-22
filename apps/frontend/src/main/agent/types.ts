@@ -1,5 +1,5 @@
 import { ChildProcess } from 'child_process';
-import type { IdeationConfig } from '../../shared/types';
+import type { IdeationConfig, TaskMetadata } from '../../shared/types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
 
 /**
@@ -50,27 +50,17 @@ export interface TaskExecutionOptions {
   useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
 }
 
-export interface SpecCreationMetadata {
+// SpecCreationMetadata uses the same phaseModels/phaseThinking types as TaskMetadata
+// This ensures compatibility when passing TaskMetadata to functions expecting SpecCreationMetadata
+export interface SpecCreationMetadata extends Pick<TaskMetadata,
+  | 'isAutoProfile'
+  | 'phaseModels'
+  | 'phaseThinking'
+  | 'model'
+  | 'thinkingLevel'
+  | 'useWorktree'
+> {
   requireReviewBeforeCoding?: boolean;
-  // Auto profile - phase-based model and thinking configuration
-  isAutoProfile?: boolean;
-  phaseModels?: {
-    spec: 'haiku' | 'sonnet' | 'opus';
-    planning: 'haiku' | 'sonnet' | 'opus';
-    coding: 'haiku' | 'sonnet' | 'opus';
-    qa: 'haiku' | 'sonnet' | 'opus';
-  };
-  phaseThinking?: {
-    spec: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-    planning: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-    coding: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-    qa: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-  };
-  // Non-auto profile - single model and thinking level
-  model?: 'haiku' | 'sonnet' | 'opus';
-  thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
-  // Workspace mode - whether to use worktree isolation
-  useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
 }
 
 export interface IdeationProgressData {

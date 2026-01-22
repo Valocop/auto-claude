@@ -51,6 +51,23 @@ export const IPC_CHANNELS = {
   TASK_STATUS_CHANGE: 'task:statusChange',
   TASK_EXECUTION_PROGRESS: 'task:executionProgress',
 
+  // Human input operations (agent asking user for input)
+  HUMAN_INPUT_CHECK: 'human-input:check',
+  HUMAN_INPUT_ANSWER: 'human-input:answer',
+  HUMAN_INPUT_SKIP: 'human-input:skip',
+  HUMAN_INPUT_WATCH: 'human-input:watch',
+  HUMAN_INPUT_UNWATCH: 'human-input:unwatch',
+  // Human input events (main -> renderer)
+  HUMAN_INPUT_CHANGED: 'human-input:changed',
+
+  // Provider switch operations (system asking user before switching providers)
+  PROVIDER_SWITCH_CHECK: 'provider-switch:check',
+  PROVIDER_SWITCH_ANSWER: 'provider-switch:answer',
+  PROVIDER_SWITCH_WATCH: 'provider-switch:watch',
+  PROVIDER_SWITCH_UNWATCH: 'provider-switch:unwatch',
+  // Provider switch events (main -> renderer)
+  PROVIDER_SWITCH_CHANGED: 'provider-switch:changed',
+
   // Task phase logs (persistent, collapsible logs by phase)
   TASK_LOGS_GET: 'task:logsGet',           // Load logs from spec dir
   TASK_LOGS_WATCH: 'task:logsWatch',       // Start watching for log changes
@@ -528,6 +545,12 @@ export const IPC_CHANNELS = {
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // iFlow integration
+  IFLOW_TEST_CONNECTION: 'iflow:testConnection',     // Test iFlow API connection
+  IFLOW_DISCOVER_MODELS: 'iflow:discoverModels',     // Discover available iFlow models
+  IFLOW_SAVE_CONFIG: 'iflow:saveConfig',             // Save iFlow configuration
+  IFLOW_GET_STATUS: 'iflow:getStatus',               // Get iFlow connection status
 
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes

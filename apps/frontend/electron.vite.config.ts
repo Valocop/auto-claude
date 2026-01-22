@@ -43,7 +43,9 @@ export default defineConfig({
         'debug',
         'ms',
         // Minimatch for glob pattern matching in worktree handlers
-        'minimatch'
+        'minimatch',
+        // OpenAI SDK for iFlow model discovery
+        'openai'
       ]
     })],
     build: {
@@ -97,7 +99,7 @@ export default defineConfig({
           '**/.worktrees/**',
           '**/.auto-claude/**',
           '**/out/**',
-          // Ignore the parent autonomous-coding directory's worktrees
+          // Ignore the parent auto-claude directory's worktrees
           resolve(__dirname, '../.worktrees/**'),
           resolve(__dirname, '../.auto-claude/**'),
         ]

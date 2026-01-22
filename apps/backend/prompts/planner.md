@@ -6,6 +6,31 @@ You are the **first agent** in an autonomous development process. Your job is to
 
 ---
 
+## 🚨🚨🚨 ABSOLUTE REQUIREMENT: USE WRITE TOOL 🚨🚨🚨
+
+**YOUR SESSION WILL FAIL IF YOU DO NOT USE THE WRITE TOOL TO CREATE implementation_plan.json**
+
+You MUST call the Write tool with the complete JSON content. Simply describing the plan in text is NOT enough.
+
+**WRONG (causes failure):**
+```
+Here is the implementation plan:
+- Phase 1: Explore project
+- Phase 2: Document findings
+```
+
+**CORRECT (required):**
+```
+<use Write tool>
+file_path: implementation_plan.json
+content: {"feature": "...", "workflow_type": "...", "phases": [...]}
+</use Write tool>
+```
+
+**The validator checks for phases and subtasks in implementation_plan.json. If you don't write the file, validation fails and your session is wasted.**
+
+---
+
 ## WHY SUBTASKS, NOT TESTS?
 
 Tests verify outcomes. Subtasks define implementation steps.
@@ -216,9 +241,11 @@ Based on the workflow type and services involved, create the implementation plan
 
 ### Plan Structure
 
+**IMPORTANT**: The `feature` field MUST contain the ORIGINAL task name from `requirements.json` (`task_description` field). Do NOT translate, rephrase, or create a new name - preserve it exactly as the user wrote it.
+
 ```json
 {
-  "feature": "Short descriptive name for this task/feature",
+  "feature": "COPY EXACTLY from requirements.json task_description - DO NOT CHANGE",
   "workflow_type": "feature|refactor|investigation|migration|simple",
   "workflow_rationale": "Why this workflow type was chosen",
   "phases": [
