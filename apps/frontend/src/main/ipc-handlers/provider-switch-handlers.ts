@@ -8,7 +8,7 @@
 
 import { ipcMain, BrowserWindow } from 'electron';
 import { watch, FSWatcher } from 'fs';
-import { readFile, writeFile, access } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
 
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -28,10 +28,11 @@ async function readProviderSwitchFile(specPath: string): Promise<ProviderSwitchR
   const switchFile = path.join(specPath, 'provider_switch.json');
 
   try {
-    await access(switchFile);
+    // Read file directly without checking existence first to avoid race condition
     const content = await readFile(switchFile, 'utf-8');
     return JSON.parse(content) as ProviderSwitchRequest;
   } catch {
+    // File doesn't exist or couldn't be read
     return null;
   }
 }

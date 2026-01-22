@@ -170,8 +170,10 @@ export function formatEnvFile(vars: Record<string, string>): string {
   const lines: string[] = [];
   for (const [key, value] of Object.entries(vars)) {
     // Quote values that contain spaces, newlines, or special characters
-    const needsQuotes = /[\s='"#]/.test(value) || value.includes('\n');
-    const formattedValue = needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value;
+    const needsQuotes = /[\s='"#\\]/.test(value) || value.includes('\n');
+    // Escape backslashes first, then double quotes
+    const escapedValue = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const formattedValue = needsQuotes ? `"${escapedValue}"` : value;
     lines.push(`${key}=${formattedValue}`);
   }
   return lines.join('\n') + '\n';

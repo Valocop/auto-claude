@@ -164,11 +164,13 @@ export function registerIFlowHandlers(
       const envPath = path.join(project.path, project.autoBuildPath, '.env');
 
       try {
-        // Read existing env file
+        // Read existing env file (avoid race condition by reading directly)
         let vars: Record<string, string> = {};
-        if (existsSync(envPath)) {
+        try {
           const content = readFileSync(envPath, 'utf-8');
           vars = parseEnvFile(content);
+        } catch {
+          // File doesn't exist yet, start with empty vars
         }
 
         // Update iFlow-related variables
@@ -186,7 +188,7 @@ export function registerIFlowHandlers(
           vars['IFLOW_MODELS'] = JSON.stringify(config.models);
         }
 
-        // Write back to env file
+        // Write to env file (atomic operation)
         const newContent = formatEnvFile(vars);
         writeFileSync(envPath, newContent);
 

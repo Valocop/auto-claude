@@ -8,7 +8,7 @@
 
 import { ipcMain, BrowserWindow } from 'electron';
 import { watch, FSWatcher } from 'fs';
-import { readFile, writeFile, access } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
 
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -28,10 +28,11 @@ async function readHumanInputFile(specPath: string): Promise<HumanInputRequest |
   const inputFile = path.join(specPath, 'human_input.json');
 
   try {
-    await access(inputFile);
+    // Read file directly without checking existence first to avoid race condition
     const content = await readFile(inputFile, 'utf-8');
     return JSON.parse(content) as HumanInputRequest;
   } catch {
+    // File doesn't exist or couldn't be read
     return null;
   }
 }
