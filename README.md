@@ -85,6 +85,30 @@ AI-assisted feature planning with competitor analysis and audience targeting.
 - **Changelog** - Generate release notes from completed tasks
 - **Human Input** - Agents pause and ask questions when clarification is needed
 
+### iFlow Integration
+
+Cost-effective alternative AI models for spec creation and research tasks. Configure API key, select default model, and discover available models directly in Settings.
+
+![iFlow Configuration](.github/assets/iflow-config.jpeg)
+
+Available models include Qwen3 Coder Plus (code/implementation), Kimi K2 (reasoning/planning), GLM-4.6 (Chinese/translation), and more.
+
+![iFlow Models List](.github/assets/iflow-config-models-list.jpeg)
+
+### Per-Phase Model Selection
+
+Customize which provider and model to use for each task phase. Use cost-effective models for research, premium models for critical implementation.
+
+![Per-Phase Configuration](.github/assets/create-task-per-phase-config.jpeg)
+
+### Real-Time Task Execution
+
+Monitor task progress with detailed logs showing which model is being used, token consumption, and phase transitions.
+
+![Task Execution with iFlow](.github/assets/running-task-with-iflow-models.jpeg)
+
+![Detailed Execution Logs](.github/assets/running-task-iflow-model-logs.jpeg)
+
 ---
 
 ## Project Structure

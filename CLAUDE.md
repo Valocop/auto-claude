@@ -59,10 +59,11 @@ cd apps/backend && uv venv && uv pip install -r requirements.txt
 # Frontend (from apps/frontend/)
 cd apps/frontend && npm install
 
-# Authenticate (token auto-saved to Keychain)
-claude
-# Then type: /login
-# Press Enter to open browser and complete OAuth
+# Authenticate with Claude Code CLI
+claude                    # Start the CLI
+# Then type: /login       # Initiates OAuth flow
+# Press Enter to open browser and complete authentication
+# Token is auto-saved to system keychain (macOS: Keychain, Windows: Credential Manager, Linux: secret-service)
 ```
 
 ### Creating and Running Specs
