@@ -11,53 +11,26 @@
 
 ---
 
-## Download
-
-### Stable Release
-
-<!-- STABLE_VERSION_BADGE -->
-[![Stable](https://img.shields.io/badge/stable-2.7.4-blue?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.4)
-<!-- STABLE_VERSION_BADGE_END -->
-
-<!-- STABLE_DOWNLOADS -->
-| Platform | Download |
-|----------|----------|
-| **Windows** | [Auto-Claude-2.7.4-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.4/Auto-Claude-2.7.4-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.4-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.4/Auto-Claude-2.7.4-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.4-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.4/Auto-Claude-2.7.4-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.4-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.4/Auto-Claude-2.7.4-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.4-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.4/Auto-Claude-2.7.4-linux-amd64.deb) |
-| **Linux (Flatpak)** | [Auto-Claude-2.7.4-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.4/Auto-Claude-2.7.4-linux-x86_64.flatpak) |
-<!-- STABLE_DOWNLOADS_END -->
-
-### Beta Release
-
-> ⚠️ Beta releases may contain bugs and breaking changes. [View all releases](https://github.com/AndyMik90/Auto-Claude/releases)
-
-<!-- BETA_VERSION_BADGE -->
-[![Beta](https://img.shields.io/badge/beta-2.7.2--beta.10-orange?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.2-beta.10)
-<!-- BETA_VERSION_BADGE_END -->
-
-<!-- BETA_DOWNLOADS -->
-| Platform | Download |
-|----------|----------|
-| **Windows** | [Auto-Claude-2.7.2-beta.10-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.2-beta.10-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.2-beta.10-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.2-beta.10-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-amd64.deb) |
-| **Linux (Flatpak)** | [Auto-Claude-2.7.2-beta.10-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.2-beta.10/Auto-Claude-2.7.2-beta.10-linux-x86_64.flatpak) |
-<!-- BETA_DOWNLOADS_END -->
-
-> All releases include SHA256 checksums and VirusTotal scan results for security verification.
-
----
-
 ## Requirements
 
 - **Claude Pro/Max subscription** - [Get one here](https://claude.ai/upgrade)
 - **Claude Code CLI** - `npm install -g @anthropic-ai/claude-code`
 - **Git repository** - Your project must be initialized as a git repo
+
+### Optional: Alternative AI Providers
+
+Auto Claude supports **iFlow** as a cost-effective alternative for spec creation and research tasks:
+
+| Provider | Models | Best For |
+|----------|--------|----------|
+| **Claude** (default) | Claude Sonnet/Opus | Implementation, QA, complex reasoning |
+| **iFlow** (optional) | DeepSeek v3, Kimi K2, Qwen3 | Spec gathering, research, simple tasks |
+
+To enable iFlow, add to `apps/backend/.env`:
+```bash
+IFLOW_ENABLED=true
+IFLOW_API_KEY=your-api-key
+```
 
 ---
 
@@ -80,9 +53,12 @@
 | **Isolated Workspaces** | All changes happen in git worktrees - your main branch stays safe |
 | **Self-Validating QA** | Built-in quality assurance loop catches issues before you review |
 | **AI-Powered Merge** | Automatic conflict resolution when integrating back to main |
-| **Memory Layer** | Agents retain insights across sessions for smarter builds |
+| **Memory Layer** | Graphiti-powered knowledge graph retains insights across sessions |
+| **Human Input System** | Agents can pause and ask questions when they need clarification |
+| **Multi-Provider Support** | Use Claude or cost-effective alternatives (iFlow: DeepSeek, Kimi K2, Qwen3) |
 | **GitHub/GitLab Integration** | Import issues, investigate with AI, create merge requests |
 | **Linear Integration** | Sync tasks with Linear for team progress tracking |
+| **E2E Testing** | QA agents can interact with Electron apps via Chrome DevTools Protocol |
 | **Cross-Platform** | Native desktop apps for Windows, macOS, and Linux |
 | **Auto-Updates** | App updates automatically when new versions are released |
 
@@ -107,6 +83,7 @@ AI-assisted feature planning with competitor analysis and audience targeting.
 - **Insights** - Chat interface for exploring your codebase
 - **Ideation** - Discover improvements, performance issues, and vulnerabilities
 - **Changelog** - Generate release notes from completed tasks
+- **Human Input** - Agents pause and ask questions when clarification is needed
 
 ---
 
@@ -115,11 +92,15 @@ AI-assisted feature planning with competitor analysis and audience targeting.
 ```
 Auto-Claude/
 ├── apps/
-│   ├── backend/     # Python agents, specs, QA pipeline
-│   └── frontend/    # Electron desktop application
-├── guides/          # Additional documentation
-├── tests/           # Test suite
-└── scripts/         # Build utilities
+│   ├── backend/           # Python agents, specs, QA pipeline
+│   │   ├── core/          # Client, auth, security, human input, iFlow
+│   │   ├── agents/        # Agent implementations (planner, coder, QA)
+│   │   ├── integrations/  # Graphiti memory, Linear, GitHub, iFlow
+│   │   └── prompts/       # Agent system prompts
+│   └── frontend/          # Electron desktop application (React, TypeScript)
+├── guides/                # Additional documentation
+├── tests/                 # Test suite
+└── scripts/               # Build and release utilities
 ```
 
 ---
@@ -134,12 +115,21 @@ cd apps/backend
 # Create a spec interactively
 python spec_runner.py --interactive
 
+# Create spec with task description
+python spec_runner.py --task "Add user authentication"
+
+# Use iFlow provider for cost-effective spec creation
+python spec_runner.py --task "Add feature" --provider iflow
+
 # Run autonomous build
 python run.py --spec 001
 
 # Review and merge
 python run.py --spec 001 --review
 python run.py --spec 001 --merge
+
+# Run QA validation
+python run.py --spec 001 --qa
 ```
 
 See [guides/CLI-USAGE.md](guides/CLI-USAGE.md) for complete CLI documentation.
@@ -214,9 +204,3 @@ Auto Claude is free to use. If you modify and distribute it, or run it as a serv
 Commercial licensing available for closed-source use cases.
 
 ---
-
-## Star History
-
-[![GitHub Repo stars](https://img.shields.io/github/stars/AndyMik90/Auto-Claude?style=social)](https://github.com/AndyMik90/Auto-Claude/stargazers)
-
-[![Star History Chart](https://api.star-history.com/svg?repos=AndyMik90/Auto-Claude&type=Date)](https://star-history.com/#AndyMik90/Auto-Claude&Date)
