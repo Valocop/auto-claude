@@ -672,10 +672,10 @@ def execute_bash(args: dict, context: ToolContext) -> dict:
                     "error": "Command blocked: potentially dangerous operation",
                 }
 
-        # Execute command
+        # Execute command (shell=True required for bash - security enforced above)
         result = subprocess.run(
             command,
-            shell=True,
+            shell=True,  # nosec B602
             cwd=str(context.project_dir),
             capture_output=True,
             text=True,
