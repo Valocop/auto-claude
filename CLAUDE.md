@@ -419,12 +419,31 @@ python spec_runner.py --task "Add feature" --provider claude
 **Automatic Features:**
 - **Rate Limit Fallback**: Automatically switches models when rate limited (deepseek-v3 → qwen3-coder-plus)
 - **Model Fallback**: Automatically falls back to supported models if selected model unavailable
-- **Tool Calling**: Local tool execution (Read, Write, Edit, Bash, Glob, Grep) via `core/iflow_tools.py`
-- **Provider Switch**: Prompts user to switch to Claude when human input tools are needed
+- **Tool Calling**: Local tool execution via `core/iflow_tools.py`:
+  - File operations: Read, Write, Edit, Glob, Grep
+  - System: Bash
+  - Human input: request_human_choice, request_human_text, request_human_confirm (pauses execution, shows dialog in UI)
+- **Provider Switch**: Prompts user to switch to Claude when MCP tools are needed (Electron, Linear, etc.)
+
+**IMPORTANT for iFlow agents:**
+- Human input tools create `human_input.json` in spec directory
+- Agent pauses and polls until user answers in UI
+- Text questions in agent output are NOT seen by users - always use tools
+
+**Status Update Protection:**
+iFlow tools include protection against accidental bulk status updates in `implementation_plan.json`:
+- Using `replace_all=true` for status changes is **blocked** to prevent marking all subtasks as completed at once
+- Agents must update each subtask individually using targeted Edit or jq commands
+
+**Subtask Completion Flow:**
+1. Agent completes work for a subtask
+2. **MUST** update subtask status to "completed" in `implementation_plan.json` immediately
+3. Then move to next subtask
+4. **NEVER** ask "Would you like me to continue?" - this causes infinite loops since text output is not seen by users
 
 **Code Location:**
 - `core/iflow_client.py` - Client factory and configuration
-- `core/iflow_tools.py` - Local tool implementations for iFlow agents
+- `core/iflow_tools.py` - Local tool implementations for iFlow agents (Read, Write, Edit, Bash, Glob, Grep, human input tools)
 - `integrations/iflow/` - MCP server integration (optional)
 
 ### Human Input System
