@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 from core.client import create_client
-from phase_config import get_phase_model, get_phase_thinking_budget, get_phase_config
+from phase_config import get_phase_config
 from phase_event import ExecutionPhase, emit_phase
 from task_logger import (
     LogPhase,
@@ -88,9 +88,12 @@ async def run_followup_planner(
 
     # Get phase config for planning to log provider/model info and create client
     # Respects task_metadata.json configuration when no CLI override
-    planning_model, planning_thinking_level, planning_thinking_budget, planning_provider = get_phase_config(
-        spec_dir, "planning", model, None
-    )
+    (
+        planning_model,
+        planning_thinking_level,
+        planning_thinking_budget,
+        planning_provider,
+    ) = get_phase_config(spec_dir, "planning", model, None)
 
     # Start planning phase in task logger
     if task_logger:

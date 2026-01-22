@@ -500,11 +500,13 @@ def get_pending_subtasks(spec_dir: Path, limit: int = 10) -> list[dict]:
             for subtask in phase.get("subtasks", phase.get("chunks", [])):
                 status = subtask.get("status", "pending")
                 if status in {"pending", "not_started", "not started"}:
-                    pending.append({
-                        "id": subtask.get("id", "unknown"),
-                        "description": subtask.get("description", ""),
-                        "phase_name": phase_name,
-                    })
+                    pending.append(
+                        {
+                            "id": subtask.get("id", "unknown"),
+                            "description": subtask.get("description", ""),
+                            "phase_name": phase_name,
+                        }
+                    )
                     if len(pending) >= limit:
                         return pending
 

@@ -68,7 +68,9 @@ class PhaseLog:
     # Provider/model tracking for iFlow integration
     provider: str | None = None  # 'claude' or 'iflow'
     model: str | None = None  # Model ID (e.g., 'claude-sonnet-4-5', 'deepseek-v3')
-    thinking_level: str | None = None  # For Claude: 'none', 'medium', 'high', 'ultrathink'
+    thinking_level: str | None = (
+        None  # For Claude: 'none', 'medium', 'high', 'ultrathink'
+    )
 
     def __post_init__(self):
         if self.entries is None:

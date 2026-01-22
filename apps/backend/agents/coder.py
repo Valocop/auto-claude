@@ -18,7 +18,7 @@ from linear_updater import (
     linear_task_started,
     linear_task_stuck,
 )
-from phase_config import get_phase_model, get_phase_thinking_budget, get_phase_config
+from phase_config import get_phase_config
 from phase_event import ExecutionPhase, emit_phase
 from progress import (
     count_subtasks,
@@ -181,8 +181,8 @@ async def run_autonomous_agent(
         # Start planning phase in task logger
         if task_logger:
             # Get phase config for planning to log provider/model info
-            planning_model, planning_thinking_level, _, planning_provider = get_phase_config(
-                spec_dir, "planning", model, None
+            planning_model, planning_thinking_level, _, planning_provider = (
+                get_phase_config(spec_dir, "planning", model, None)
             )
             task_logger.start_phase(
                 LogPhase.PLANNING,
@@ -312,7 +312,9 @@ async def run_autonomous_agent(
 
             # Filter out current subtask from pending list
             if pending_subtasks and subtask_id:
-                pending_subtasks = [s for s in pending_subtasks if s.get("id") != subtask_id]
+                pending_subtasks = [
+                    s for s in pending_subtasks if s.get("id") != subtask_id
+                ]
 
             task_logger.log_execution_context(
                 current_subtask=next_subtask,
@@ -328,8 +330,8 @@ async def run_autonomous_agent(
         # Get the phase-specific model, thinking level, and provider (respects task_metadata.json configuration)
         # first_run means we're in planning phase, otherwise coding phase
         current_phase = "planning" if first_run else "coding"
-        phase_model, phase_thinking_level, phase_thinking_budget, phase_provider = get_phase_config(
-            spec_dir, current_phase, model, None
+        phase_model, phase_thinking_level, phase_thinking_budget, phase_provider = (
+            get_phase_config(spec_dir, current_phase, model, None)
         )
 
         # Create client (fresh context) with phase-specific model, thinking, and provider
@@ -384,8 +386,8 @@ async def run_autonomous_agent(
                         message="Implementation plan created",
                     )
                     # Get phase config for coding to log provider/model info
-                    coding_model, coding_thinking_level, _, coding_provider = get_phase_config(
-                        spec_dir, "coding", model, None
+                    coding_model, coding_thinking_level, _, coding_provider = (
+                        get_phase_config(spec_dir, "coding", model, None)
                     )
                     task_logger.start_phase(
                         LogPhase.CODING,

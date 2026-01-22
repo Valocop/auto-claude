@@ -217,7 +217,9 @@ class TaskLogger:
         # Add phase start entry with provider info
         phase_message = message or f"Starting {phase_key} phase"
         if self.current_provider and self.current_model:
-            phase_message = f"{phase_message} (using {self.current_provider}/{self.current_model})"
+            phase_message = (
+                f"{phase_message} (using {self.current_provider}/{self.current_model})"
+            )
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_START.value,
@@ -630,14 +632,18 @@ class TaskLogger:
             pending = plan_summary.get("pending_subtasks", 0)
             in_progress = plan_summary.get("in_progress_subtasks", 0)
             pct = int((completed / total * 100) if total > 0 else 0)
-            lines.append(f"   Overall: {completed}/{total} subtasks ({pct}%) | {pending} pending, {in_progress} in progress")
+            lines.append(
+                f"   Overall: {completed}/{total} subtasks ({pct}%) | {pending} pending, {in_progress} in progress"
+            )
 
         # Current phase
         if current_phase:
             phase_name = current_phase.get("name", "Unknown")
             phase_completed = current_phase.get("completed", 0)
             phase_total = current_phase.get("total", 0)
-            lines.append(f"   Phase: {phase_name} ({phase_completed}/{phase_total} subtasks)")
+            lines.append(
+                f"   Phase: {phase_name} ({phase_completed}/{phase_total} subtasks)"
+            )
 
         # Current subtask
         if current_subtask:
@@ -656,7 +662,7 @@ class TaskLogger:
                 subtask_desc = subtask.get("description", "")
                 if len(subtask_desc) > 50:
                     subtask_desc = subtask_desc[:47] + "..."
-                lines.append(f"      {i+1}. [{subtask_id}] {subtask_desc}")
+                lines.append(f"      {i + 1}. [{subtask_id}] {subtask_desc}")
             remaining = len(next_subtasks) - 3
             if remaining > 0:
                 lines.append(f"      ... and {remaining} more")

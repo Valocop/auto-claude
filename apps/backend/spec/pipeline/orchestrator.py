@@ -10,6 +10,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from analysis.analyzers import analyze_project
+from core.provider_switch import (
+    ProviderSwitchManager,
+    get_switch_reason_message,
+)
 from core.workspace.models import SpecNumberLock
 from phase_config import get_thinking_budget
 from prompts_pkg.project_context import should_refresh_project_index
@@ -44,10 +48,6 @@ from .models import (
     create_spec_dir,
     get_specs_dir,
     rename_spec_dir_from_requirements,
-)
-from core.provider_switch import (
-    ProviderSwitchManager,
-    get_switch_reason_message,
 )
 
 
@@ -178,7 +178,7 @@ class SpecOrchestrator:
         if force_claude or (self._needs_human_input and self.provider == "iflow"):
             provider_override = "claude"
             print_status(
-                f"Switching to Claude for human input support",
+                "Switching to Claude for human input support",
                 "info",
             )
 
@@ -694,7 +694,9 @@ class SpecOrchestrator:
                 if user_choice == "skip":
                     print_status("User chose to skip clarification phase", "info")
                 else:
-                    print_status("Provider switch request timed out or was declined", "warning")
+                    print_status(
+                        "Provider switch request timed out or was declined", "warning"
+                    )
 
             return approved
         finally:
@@ -725,9 +727,9 @@ class SpecOrchestrator:
 
 You are running a follow-up clarification phase because the initial task analysis identified
 that human input is needed. The task was classified as:
-- Workflow Type: {self.assessment.workflow_type if self.assessment else 'unknown'}
+- Workflow Type: {self.assessment.workflow_type if self.assessment else "unknown"}
 - Confidence: {self.assessment.confidence if self.assessment else 0}
-- Reasoning: {self.assessment.reasoning if self.assessment else 'N/A'}
+- Reasoning: {self.assessment.reasoning if self.assessment else "N/A"}
 
 ## Your Goal
 

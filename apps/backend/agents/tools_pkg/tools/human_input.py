@@ -252,7 +252,10 @@ def create_human_input_tools(spec_dir: Path, project_dir: Path) -> list:
 
         return {
             "content": [
-                {"type": "text", "text": f"User provided: {answer}\n\nProceed with this information."}
+                {
+                    "type": "text",
+                    "text": f"User provided: {answer}\n\nProceed with this information.",
+                }
             ]
         }
 
@@ -368,5 +371,5 @@ def _get_current_context(spec_dir: Path) -> tuple[str | None, str | None]:
                     return phase_id, subtask.get("id")
 
         return None, None
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return None, None

@@ -16,7 +16,6 @@ Environment Variables:
 import os
 from dataclasses import dataclass
 
-
 # Default configuration values
 DEFAULT_BASE_URL = "https://apis.iflow.cn/v1"
 DEFAULT_MODEL = "deepseek-v3"

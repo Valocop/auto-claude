@@ -108,12 +108,12 @@ class TestGetAgentConfig:
 class TestGetRequiredMcpServers:
     """Tests for get_required_mcp_servers() function."""
 
-    def test_spec_gatherer_has_no_mcp_servers(self):
-        """spec_gatherer should not require any MCP servers."""
+    def test_spec_gatherer_has_auto_claude(self):
+        """spec_gatherer should require auto-claude for human input tools."""
         from agents.tools_pkg.models import get_required_mcp_servers
 
         servers = get_required_mcp_servers("spec_gatherer")
-        assert servers == []
+        assert "auto-claude" in servers
 
     def test_spec_researcher_has_context7(self):
         """spec_researcher should require context7 for docs lookup."""

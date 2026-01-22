@@ -320,7 +320,7 @@ describe('Task Store', () => {
       expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
     });
 
-    it('should update title from plan feature', () => {
+    it('should preserve original title (not update from plan feature)', () => {
       useTaskStore.setState({
         tasks: [createTestTask({ id: 'task-1', title: 'Original Title' })]
       });
@@ -329,7 +329,8 @@ describe('Task Store', () => {
 
       useTaskStore.getState().updateTaskFromPlan('task-1', plan);
 
-      expect(useTaskStore.getState().tasks[0].title).toBe('New Feature Name');
+      // Title should be preserved - user's original title, not plan.feature
+      expect(useTaskStore.getState().tasks[0].title).toBe('Original Title');
     });
 
     it('should NOT update status when task is in active execution phase (planning)', () => {
@@ -1443,7 +1444,7 @@ describe('Task Store', () => {
         expect(useTaskStore.getState().tasks[0].subtasks[2].status).toBe('pending');
       });
 
-      it('should update title even when status recalculation is blocked', () => {
+      it('should preserve original title when status recalculation is blocked', () => {
         useTaskStore.setState({
           tasks: [createTestTask({
             id: 'task-1',
@@ -1471,8 +1472,8 @@ describe('Task Store', () => {
 
         // Status should stay in_progress (blocked by active phase)
         expect(useTaskStore.getState().tasks[0].status).toBe('in_progress');
-        // But title should still be updated
-        expect(useTaskStore.getState().tasks[0].title).toBe('New Feature Name');
+        // Title should be preserved (user's original title, not plan.feature)
+        expect(useTaskStore.getState().tasks[0].title).toBe('Original Title');
       });
     });
 

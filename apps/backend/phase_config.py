@@ -79,6 +79,7 @@ class PhaseThinkingConfig(TypedDict, total=False):
 
 class PhaseConfigDict(TypedDict, total=False):
     """Structure of a single phase configuration with provider support"""
+
     provider: str  # 'claude' or 'iflow'
     model: str
     thinkingLevel: str
@@ -86,6 +87,7 @@ class PhaseConfigDict(TypedDict, total=False):
 
 class PhaseModelConfigWithProvider(TypedDict, total=False):
     """Phase model configuration with provider support (new format)"""
+
     spec: PhaseConfigDict
     planning: PhaseConfigDict
     coding: PhaseConfigDict
@@ -96,7 +98,9 @@ class TaskMetadataConfig(TypedDict, total=False):
     """Structure of model-related fields in task_metadata.json"""
 
     isAutoProfile: bool
-    phaseModels: PhaseModelConfig | PhaseModelConfigWithProvider  # Can be old format (strings) or new format (PhaseConfigDict)
+    phaseModels: (
+        PhaseModelConfig | PhaseModelConfigWithProvider
+    )  # Can be old format (strings) or new format (PhaseConfigDict)
     phaseThinking: PhaseThinkingConfig
     model: str
     thinkingLevel: str
@@ -219,18 +223,18 @@ def get_phase_model(
         if metadata.get("isAutoProfile") and metadata.get("phaseModels"):
             phase_models = metadata["phaseModels"]
             phase_config = phase_models.get(phase)
-            
+
             # Support both old format (string) and new format (PhaseConfigDict with provider)
-            if isinstance(phase_config, dict) and 'model' in phase_config:
+            if isinstance(phase_config, dict) and "model" in phase_config:
                 # New format: PhaseConfigDict
-                model = phase_config['model']
+                model = phase_config["model"]
             elif isinstance(phase_config, str):
                 # Old format: just a string
                 model = phase_config
             else:
                 # Fallback to default
                 model = DEFAULT_PHASE_MODELS[phase]
-            
+
             return resolve_model_id(model)
 
         # Non-auto profile: use single model
@@ -324,24 +328,26 @@ def get_phase_config(
         provider is 'claude' or 'iflow', defaults to 'claude'
     """
     metadata = load_task_metadata(spec_dir)
-    provider = 'claude'  # Default provider
-    
+    provider = "claude"  # Default provider
+
     # Check if phaseModels uses new format with provider support
-    if metadata and metadata.get('phaseModels'):
-        phase_models = metadata['phaseModels']
+    if metadata and metadata.get("phaseModels"):
+        phase_models = metadata["phaseModels"]
         phase_key = phase
-        phase_config = phase_models.get(phase_key) if isinstance(phase_models, dict) else None
-        
+        phase_config = (
+            phase_models.get(phase_key) if isinstance(phase_models, dict) else None
+        )
+
         # Check if it's new format (PhaseConfigDict with provider field)
-        if isinstance(phase_config, dict) and 'provider' in phase_config:
-            provider = phase_config.get('provider', 'claude')
+        if isinstance(phase_config, dict) and "provider" in phase_config:
+            provider = phase_config.get("provider", "claude")
             # Use model from phase config if CLI not provided
-            if not cli_model and 'model' in phase_config:
-                cli_model = phase_config['model']
+            if not cli_model and "model" in phase_config:
+                cli_model = phase_config["model"]
             # Use thinking level from phase config if CLI not provided
-            if not cli_thinking and 'thinkingLevel' in phase_config:
-                cli_thinking = phase_config['thinkingLevel']
-    
+            if not cli_thinking and "thinkingLevel" in phase_config:
+                cli_thinking = phase_config["thinkingLevel"]
+
     model_id = get_phase_model(spec_dir, phase, cli_model)
     thinking_level = get_phase_thinking(spec_dir, phase, cli_thinking)
     thinking_budget = get_thinking_budget(thinking_level)

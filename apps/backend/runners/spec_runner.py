@@ -280,6 +280,7 @@ Examples:
         task_metadata_file = args.spec_dir / "task_metadata.json"
         if task_metadata_file.exists():
             import json
+
             try:
                 metadata = json.loads(task_metadata_file.read_text())
 
@@ -292,22 +293,37 @@ Examples:
                     if isinstance(spec_config, dict):
                         if spec_config.get("provider"):
                             provider = spec_config["provider"]
-                            debug("spec_runner", f"Using provider from phaseModels.spec: {provider}")
+                            debug(
+                                "spec_runner",
+                                f"Using provider from phaseModels.spec: {provider}",
+                            )
                         if spec_config.get("model"):
                             resolved_model = spec_config["model"]
-                            debug("spec_runner", f"Using model from phaseModels.spec: {resolved_model}")
+                            debug(
+                                "spec_runner",
+                                f"Using model from phaseModels.spec: {resolved_model}",
+                            )
                     elif isinstance(spec_config, str):
                         # Old format: phaseModels.spec is just a model string
                         resolved_model = spec_config
-                        debug("spec_runner", f"Using model from phaseModels.spec (old format): {resolved_model}")
+                        debug(
+                            "spec_runner",
+                            f"Using model from phaseModels.spec (old format): {resolved_model}",
+                        )
 
                 # Fallback: check top-level provider/model (old format)
                 if provider == "claude" and metadata.get("provider"):
                     provider = metadata["provider"]
-                    debug("spec_runner", f"Using provider from task_metadata.json (top level): {provider}")
+                    debug(
+                        "spec_runner",
+                        f"Using provider from task_metadata.json (top level): {provider}",
+                    )
                 if resolved_model == args.model and metadata.get("model"):
                     resolved_model = metadata["model"]
-                    debug("spec_runner", f"Using model from task_metadata.json (top level): {resolved_model}")
+                    debug(
+                        "spec_runner",
+                        f"Using model from task_metadata.json (top level): {resolved_model}",
+                    )
 
                 # Strip 'iflow:' prefix if present
                 if resolved_model.startswith("iflow:"):

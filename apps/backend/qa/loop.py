@@ -20,7 +20,7 @@ from linear_updater import (
     linear_qa_rejected,
     linear_qa_started,
 )
-from phase_config import get_phase_model, get_phase_thinking_budget, get_phase_config
+from phase_config import get_phase_config
 from phase_event import ExecutionPhase, emit_phase
 from progress import count_subtasks, is_build_complete
 from security.constants import PROJECT_DIR_ENV_VAR

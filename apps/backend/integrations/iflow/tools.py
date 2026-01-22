@@ -282,7 +282,10 @@ IFLOW_TOOLS = {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "role": {"type": "string", "enum": ["user", "assistant", "system"]},
+                            "role": {
+                                "type": "string",
+                                "enum": ["user", "assistant", "system"],
+                            },
                             "content": {"type": "string"},
                         },
                         "required": ["role", "content"],

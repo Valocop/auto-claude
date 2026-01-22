@@ -51,7 +51,7 @@ class HumanInputOption:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HumanInputOption":
+    def from_dict(cls, data: dict[str, Any]) -> HumanInputOption:
         """Create from dictionary."""
         return cls(
             id=data["id"],
@@ -131,12 +131,10 @@ class HumanInputRequest:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HumanInputRequest":
+    def from_dict(cls, data: dict[str, Any]) -> HumanInputRequest:
         """Create from dictionary."""
         question = data.get("question", {})
-        options = [
-            HumanInputOption.from_dict(opt) for opt in data.get("options", [])
-        ]
+        options = [HumanInputOption.from_dict(opt) for opt in data.get("options", [])]
 
         request = cls(
             id=data["id"],
@@ -430,7 +428,7 @@ class HumanInputManager:
         try:
             with open(self.input_file) as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Error reading human input file: {e}")
             return None
 

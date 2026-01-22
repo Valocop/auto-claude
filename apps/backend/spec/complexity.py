@@ -417,7 +417,7 @@ async def run_ai_complexity_assessment(
                         task_description_lower = req_data.get(
                             "task_description", ""
                         ).lower()
-                except (json.JSONDecodeError, IOError):
+                except (OSError, json.JSONDecodeError):
                     pass
 
             # Parse AI assessment into ComplexityAssessment
@@ -434,12 +434,31 @@ async def run_ai_complexity_assessment(
             # Keywords that indicate exploration/investigation (Russian and English)
             investigation_keywords = [
                 # Russian
-                "изучи", "исследуй", "разбери", "проанализируй", "задай вопрос",
-                "пойми", "выясни", "узнай", "посмотри", "объясни",
+                "изучи",
+                "исследуй",
+                "разбери",
+                "проанализируй",
+                "задай вопрос",
+                "пойми",
+                "выясни",
+                "узнай",
+                "посмотри",
+                "объясни",
                 # English
-                "investigate", "explore", "study", "analyze", "understand",
-                "research", "ask question", "learn about", "figure out", "discover",
-                "look into", "examine", "debug", "troubleshoot",
+                "investigate",
+                "explore",
+                "study",
+                "analyze",
+                "understand",
+                "research",
+                "ask question",
+                "learn about",
+                "figure out",
+                "discover",
+                "look into",
+                "examine",
+                "debug",
+                "troubleshoot",
             ]
 
             reasoning_lower = data.get("reasoning", "").lower()

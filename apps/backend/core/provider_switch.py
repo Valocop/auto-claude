@@ -9,11 +9,11 @@ this manager requests user confirmation before switching.
 
 import json
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Literal
 
-from debug import debug, debug_detailed
+from debug import debug
 
 
 class ProviderSwitchRequest:
@@ -142,7 +142,7 @@ class ProviderSwitchManager:
         try:
             with open(self.switch_file, encoding="utf-8") as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return None
 
     def _update_status(self, status: str):
@@ -170,7 +170,9 @@ class ProviderSwitchManager:
             self.switch_file.unlink()
 
 
-def get_switch_reason_message(reason_code: str, task_description: str | None = None) -> str:
+def get_switch_reason_message(
+    reason_code: str, task_description: str | None = None
+) -> str:
     """
     Get human-readable reason message for provider switch.
 
@@ -196,7 +198,9 @@ def get_switch_reason_message(reason_code: str, task_description: str | None = N
         ),
     }
 
-    base_reason = reasons.get(reason_code, "Human input tools are required for this task.")
+    base_reason = reasons.get(
+        reason_code, "Human input tools are required for this task."
+    )
 
     if task_description:
         return f"{base_reason}\n\nTask: {task_description[:200]}..."

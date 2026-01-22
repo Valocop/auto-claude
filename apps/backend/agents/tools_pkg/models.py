@@ -157,7 +157,10 @@ AGENT_CONFIGS = {
     },
     "spec_researcher": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
-        "mcp_servers": ["context7", "auto-claude"],  # Needs docs lookup + human input for questions
+        "mcp_servers": [
+            "context7",
+            "auto-claude",
+        ],  # Needs docs lookup + human input for questions
         "auto_claude_tools": [],
         "thinking_default": "medium",
         # iFlow alternative provider support
@@ -184,7 +187,9 @@ AGENT_CONFIGS = {
     },
     "spec_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
-        "mcp_servers": ["auto-claude"],  # Needs human input for asking clarifying questions
+        "mcp_servers": [
+            "auto-claude"
+        ],  # Needs human input for asking clarifying questions
         "auto_claude_tools": [],
         "thinking_default": "medium",
         # iFlow alternative provider support
